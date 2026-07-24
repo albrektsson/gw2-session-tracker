@@ -43,6 +43,14 @@ impl SessionTracker {
     pub fn has_data(&self) -> bool {
         self.baseline.is_some()
     }
+
+    /// Re-baselines to the current lifetime values, so every stat's
+    /// session value restarts at zero immediately (rather than waiting
+    /// for the next poll to naturally re-baseline, which only happens
+    /// when there's no baseline at all yet).
+    pub fn reset(&mut self) {
+        self.baseline = Some(self.lifetime.clone());
+    }
 }
 
 #[cfg(test)]
@@ -104,5 +112,34 @@ mod tests {
         tracker.update(values(&[("gold", 100.0)]));
         tracker.update(values(&[("gold", 90.0)]));
         assert_eq!(tracker.lifetime_value("gold"), 90.0);
+    }
+
+    #[test]
+    fn reset_restarts_session_value_at_zero_immediately() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.update(values(&[("kills", 107.0)]));
+        assert_eq!(tracker.session_value("kills"), 7.0);
+
+        tracker.reset();
+        assert_eq!(tracker.session_value("kills"), 0.0);
+        assert_eq!(tracker.lifetime_value("kills"), 107.0);
+    }
+
+    #[test]
+    fn reset_then_update_computes_delta_from_new_baseline() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.reset();
+        tracker.update(values(&[("kills", 105.0)]));
+        assert_eq!(tracker.session_value("kills"), 5.0);
+    }
+
+    #[test]
+    fn reset_keeps_has_data_true() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 1.0)]));
+        tracker.reset();
+        assert!(tracker.has_data());
     }
 }

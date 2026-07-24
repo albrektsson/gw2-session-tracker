@@ -137,6 +137,15 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
         state.text_color = text_color;
         persist_and_report(&mut state, addon_dir);
     }
+
+    ui.separator();
+    if state.session.has_data() {
+        if ui.button("Reset Session") {
+            state.session.reset();
+        }
+    } else {
+        ui.text("Reset Session (available after the first successful poll)");
+    }
 }
 
 fn persist_and_report(state: &mut AppState, addon_dir: &Path) {
