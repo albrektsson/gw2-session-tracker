@@ -1,6 +1,8 @@
 # Session Tracker
 
 [![CI](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/github-code-scanning/codeql)
+[![Dependabot Updates](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/dependabot/dependabot-updates)
 
 A [Raidcore Nexus](https://raidcore.gg/Nexus) addon for Guild Wars 2 that
 shows a window of GW2 stats, each tracked as both a **session** value (how
