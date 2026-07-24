@@ -13,11 +13,14 @@ linker = "x86_64-w64-mingw32-gcc"
 # a bare `-static` flag placed later in `-C link-args` doesn't retroactively
 # take effect. We must explicitly reopen `-Wl,-Bstatic` right before our own
 # group. `--start-group`/`--end-group` resolves the circular references
-# between libstdc++/libgcc/libwinpthread; `-Wl,-Bdynamic` afterward restores
-# dynamic linking for msvcrt/mingwex/kernel32 (which have no true static
-# archives available — they're always-present system/CRT components anyway,
-# so dynamic linkage for those is fine).
-rustflags = ["-C", "link-args=-Wl,-Bstatic -Wl,--start-group -lstdc++ -lwinpthread -lgcc -lgcc_eh -Wl,--end-group -Wl,-Bdynamic -lmsvcrt -lmingwex -lkernel32"]
+# between libstdc++/libgcc/libwinpthread/mingwex (libwinpthread's thread
+# cleanup code references symbols - e.g. `_gnu_exception_handler` on the
+# posix-threading-model mingw-w64 toolchain Ubuntu's CI runners use - that
+# only resolve if libmingwex is in the same static group, not linked
+# separately afterward); `-Wl,-Bdynamic` afterward restores dynamic linking
+# for msvcrt/kernel32 (always-present system/CRT components, dynamic
+# linkage is fine for those).
+rustflags = ["-C", "link-args=-Wl,-Bstatic -Wl,--start-group -lstdc++ -lwinpthread -lgcc -lgcc_eh -lmingwex -Wl,--end-group -Wl,-Bdynamic -lmsvcrt -lkernel32"]
 
 # arcdps-imgui-sys's build script (via the `cc` crate) otherwise emits its
 # own dynamic `cargo:rustc-link-lib=stdc++`, which resolves libstdc++-6.dll
