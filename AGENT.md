@@ -34,8 +34,7 @@ beyond some smaller MVP.
 
 ## Stat catalog (MVP target breadth)
 
-Mirroring BlishHud-SessionTracker means the trackable catalog spans every
-category it covers, not just WvW:
+The trackable catalog spans every category BlishHud-SessionTracker covers:
 
 - **WvW**: kills, deaths, KDR, WvW rank, camps/towers/keeps/castles/
   objectives captured & defended, dolyaks killed/escorted, supply spent on
@@ -45,11 +44,13 @@ category it covers, not just WvW:
 - **General account**: currencies (gold, gems, karma, laurels, etc.),
   achievement points, unlocked achievements, and other account-wide
   achievement- or wallet-backed stats the API exposes
+- **Items**: specific items obtained through play (e.g. Heavy Loot Bags
+  from WvW, Memory of Battle) that have no achievement or currency behind
+  them, tracked by counting how many the player currently holds
 
-Every stat in the catalog follows the same shape: an id, a display name,
-an icon, and a source (a GW2 achievement id, a wallet currency id, or an
-account/character field) that both a lifetime value and a session delta
-can be computed from.
+Every stat has an id, a display name, an icon, and one of four sources: a
+GW2 achievement id, a wallet currency id, an account/character field, or
+an item id.
 
 ## How it works, conceptually
 
@@ -59,12 +60,23 @@ can be computed from.
   player's API key, the same mechanism BlishHud-SessionTracker uses. Some
   values lag behind real-time play by the API's own propagation delay,
   same as the reference module.
-- **Lifetime** for a stat is simply the current value the API reports.
+- **Lifetime** for an achievement, currency, or account-field stat is
+  simply the current value the API reports — it only ever goes up.
+- **Item-based stats have no achievement or currency to read**, so their
+  lifetime value is computed by summing how many of that item id the
+  player currently holds: across every character's bags, the account
+  bank, shared inventory slots, and material storage (material storage is
+  a separate API resource with no bag/slot structure of its own). Unlike
+  every other stat, this count can go *down* as well as up — the player
+  can spend, salvage, or deposit the item — so it behaves as a live
+  possession count, not a strict all-time total.
 - **Session** for a stat is the delta between its current lifetime value
   and its value when the session started — except where a raw
   diff-of-values would be meaningless (a ratio like KDR), which is instead
   computed from its underlying session deltas (session kills ÷ session
-  deaths, not lifetime-KDR-now minus lifetime-KDR-then).
+  deaths, not lifetime-KDR-now minus lifetime-KDR-then). The same delta
+  math applies to item-based stats; it just isn't guaranteed to be a pure
+  "amount gained," since the player may also spend some mid-session.
 - A session can be reset (manually, and/or automatically on a trigger like
   re-entering WvW or a game restart) so the player can measure "how much
   did I get done tonight" or "since I logged in today" however they like.
@@ -74,8 +86,8 @@ can be computed from.
 A player can:
 1. Enter their API key once.
 2. Open a settings/stat-picker panel, search the full catalog (WvW, PvP,
-   currencies, general account), and select exactly the stats they care
-   about, in whatever order they want.
+   currencies, general account, items), and select exactly the stats they
+   care about, in whatever order they want.
 3. Open the stats window and see each selected stat's session and
    lifetime value update automatically as they play.
 4. Reset their session whenever they want a fresh baseline.
