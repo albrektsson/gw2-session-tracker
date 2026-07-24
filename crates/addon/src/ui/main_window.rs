@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 use session_tracker_core::{
-    format::format_thousands,
+    format::{format_coin, format_thousands},
     stats::{pvp_rank_tier, resolve_selected_stats},
 };
 use session_tracker_net::state::{AppState, PollStatus};
@@ -57,6 +57,17 @@ fn render_icon(identifier: &str, icon_url: &str, icon_size: f32, ui: &Ui) {
 /// `ui.text_colored` so the double-draw doesn't advance the layout cursor
 /// twice; `ui.dummy` reserves the correct single-width space afterward,
 /// which also keeps this hoverable for the tooltip like a normal item.
+/// GW2's wallet API reports "Coin" (gold) as a raw copper count; every
+/// other stat is a plain integer. Gold specifically needs the
+/// gold/silver/copper breakdown to be readable.
+fn format_value(id: &str, value: f64) -> String {
+    if id == "gold" {
+        format_coin(value)
+    } else {
+        format_thousands(value)
+    }
+}
+
 fn draw_text(ui: &Ui, color: [f32; 4], text: &str, bold: bool) {
     let pos = ui.cursor_screen_pos();
     let draw_list = ui.get_window_draw_list();
@@ -145,7 +156,7 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                 };
                 let lifetime_value = state.session.lifetime_value(stat.id);
 
-                let text = format!("{} | {}", format_thousands(session_value), format_thousands(lifetime_value));
+                let text = format!("{} | {}", format_value(stat.id, session_value), format_value(stat.id, lifetime_value));
                 draw_text(ui, state.text_color, &text, state.bold_text);
                 if ui.is_item_hovered() {
                     ui.tooltip_text(stat.display_name);
