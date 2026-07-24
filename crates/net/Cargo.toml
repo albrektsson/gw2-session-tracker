@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 session_tracker_core = { path = "../core" }
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 log = "0.4"
