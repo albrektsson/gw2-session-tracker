@@ -144,6 +144,15 @@ mod tests {
                 wvw_rank: 10,
                 achievements: Default::default(),
                 total_deaths: 2,
+                currencies: Default::default(),
+                pvp_rank: 0,
+                pvp_wins: 0,
+                pvp_losses: 0,
+                pvp_ranking_points: 0,
+                pvp_ranked_wins: 0,
+                pvp_ranked_losses: 0,
+                pvp_unranked_wins: 0,
+                pvp_unranked_losses: 0,
             })
         };
 
@@ -174,6 +183,15 @@ mod tests {
                 wvw_rank: 0,
                 achievements: Default::default(),
                 total_deaths: 0,
+                currencies: Default::default(),
+                pvp_rank: 0,
+                pvp_wins: 0,
+                pvp_losses: 0,
+                pvp_ranking_points: 0,
+                pvp_ranked_wins: 0,
+                pvp_ranked_losses: 0,
+                pvp_unranked_wins: 0,
+                pvp_unranked_losses: 0,
             })
         };
 

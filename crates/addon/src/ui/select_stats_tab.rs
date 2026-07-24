@@ -1,4 +1,4 @@
-use nexus::imgui::Ui;
+use nexus::imgui::{TreeNodeFlags, Ui};
 use std::{
     cell::RefCell,
     path::Path,
@@ -6,7 +6,10 @@ use std::{
 };
 use session_tracker_core::{
     config::save_config,
-    stats::{select_all, toggle_stat, unselect_all, WVW_STATS},
+    stats::{
+        select_all, select_ids, toggle_stat, unselect_all, unselect_ids, Category, StatDef,
+        STAT_CATALOG, SUPERCATEGORIES,
+    },
 };
 use session_tracker_net::state::AppState;
 
@@ -21,6 +24,28 @@ fn persist(state: &AppState, addon_dir: &Path) {
     if let Err(err) = save_config(addon_dir, &config) {
         log::warn!("failed to save session tracker config: {err}");
     }
+}
+
+fn category_display_name(category: Category) -> &'static str {
+    match category {
+        Category::Misc => "Misc",
+        Category::Currency => "Currencies",
+        Category::Festival => "Festival",
+        Category::Wvw => "WvW",
+        Category::Pvp => "PvP",
+        Category::OpenWorld => "Open World",
+        Category::Fractal => "Fractal",
+        Category::Raid => "Raid",
+        Category::Strike => "Strike Mission",
+    }
+}
+
+fn stats_in_category(category: Category, needle: &str) -> Vec<&'static StatDef> {
+    STAT_CATALOG
+        .iter()
+        .filter(|s| s.categories.contains(&category))
+        .filter(|s| needle.is_empty() || s.display_name.to_lowercase().contains(needle))
+        .collect()
 }
 
 pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
@@ -46,15 +71,58 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
 
         let needle = query.to_lowercase();
         let mut state = shared.lock().unwrap();
-        for stat in WVW_STATS {
-            if !needle.is_empty() && !stat.display_name.to_lowercase().contains(&needle) {
+
+        for (supercategory_name, subcategories) in SUPERCATEGORIES {
+            if !ui.collapsing_header(*supercategory_name, TreeNodeFlags::DEFAULT_OPEN) {
                 continue;
             }
-            let mut checked = state.selected_stats.iter().any(|id| id == stat.id);
-            if ui.checkbox(stat.display_name, &mut checked) {
-                toggle_stat(&mut state.selected_stats, stat.id);
-                persist(&state, addon_dir);
+            ui.indent();
+
+            for &category in *subcategories {
+                let stats = stats_in_category(category, &needle);
+                if stats.is_empty() {
+                    continue;
+                }
+
+                let name = category_display_name(category);
+                let selected_count = stats
+                    .iter()
+                    .filter(|s| state.selected_stats.iter().any(|id| id == s.id))
+                    .count();
+                let header_label = format!("{name} ({selected_count}/{} selected)", stats.len());
+
+                if !ui.collapsing_header(header_label, TreeNodeFlags::empty()) {
+                    continue;
+                }
+                ui.indent();
+
+                let ids: Vec<&str> = stats.iter().map(|s| s.id).collect();
+                if ui.button(format!("Select all##{name}_select")) {
+                    select_ids(&mut state.selected_stats, &ids);
+                    persist(&state, addon_dir);
+                }
+                ui.same_line();
+                if ui.button(format!("Unselect all##{name}_unselect")) {
+                    unselect_ids(&mut state.selected_stats, &ids);
+                    persist(&state, addon_dir);
+                }
+
+                for stat in &stats {
+                    let mut checked = state.selected_stats.iter().any(|id| id == stat.id);
+                    // "##name_id" disambiguates the widget id: the same stat
+                    // can render in several categories (e.g. a currency in
+                    // both "Currencies" and "WvW"), and ImGui derives widget
+                    // identity from the label text by default.
+                    if ui.checkbox(format!("{}##{name}_{}", stat.display_name, stat.id), &mut checked) {
+                        toggle_stat(&mut state.selected_stats, stat.id);
+                        persist(&state, addon_dir);
+                    }
+                }
+
+                ui.unindent();
             }
+
+            ui.unindent();
         }
     });
 }

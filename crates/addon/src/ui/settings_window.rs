@@ -66,7 +66,8 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
             SEEDED.with(|seeded| seeded.set(true));
         }
 
-        ui.text("GW2 API key (needs account, characters, progression scopes):");
+        ui.text("GW2 API key (needs account, characters, progression scopes;");
+        ui.text("add wallet + pvp scopes too, to also see currency/PvP stats):");
         ui.input_text("##api_key", &mut buf).password(true).build();
 
         if ui.button("Save") {
