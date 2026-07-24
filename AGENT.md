@@ -94,3 +94,11 @@ A player can:
 
 That's the MVP: functional parity with what BlishHud-SessionTracker
 offers today, delivered as a native Nexus addon.
+
+## Conventions
+
+- Keep comments minimal and about the current state only. Don't narrate
+  history — what an approach used to be, what was tried before, why a
+  past attempt failed. That belongs in commit messages, not the file.
+  A comment should explain a non-obvious *why* about the code as it
+  stands today, nothing else.
