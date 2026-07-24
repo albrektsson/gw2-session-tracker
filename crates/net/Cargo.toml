@@ -7,3 +7,6 @@ edition = "2021"
 session_tracker_core = { path = "../core" }
 ureq = { version = "3", features = ["json"] }
 log = "0.4"
+
+[dev-dependencies]
+dotenvy = "0.15"

@@ -102,3 +102,4 @@ offers today, delivered as a native Nexus addon.
   past attempt failed. That belongs in commit messages, not the file.
   A comment should explain a non-obvious *why* about the code as it
   stands today, nothing else.
+- Commit messages are a single line — a summary title, no body.
