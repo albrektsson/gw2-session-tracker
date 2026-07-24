@@ -13,6 +13,16 @@ the Blish HUD module `ecksofa.sessiontracker`
 aiming to mirror as much of its functionality as possible. See
 [`AGENT.md`](./AGENT.md) for the full product vision.
 
+## Screenshots
+
+| Main window | Select Stats |
+|---|---|
+| ![Main window](./images/session_tracker.png) | ![Select Stats tab](./images/stat_selector.png) |
+
+| Arrange Stats | General settings |
+|---|---|
+| ![Arrange Stats tab](./images/stat_sorter.png) | ![General settings tab](./images/settings.png) |
+
 ## Structure
 
 A 3-crate Cargo workspace:
