@@ -11,7 +11,14 @@ impl SessionTracker {
         Self::default()
     }
 
-    pub fn update(&mut self, lifetime: HashMap<&'static str, f64>) {
+    pub fn update(&mut self, mut lifetime: HashMap<&'static str, f64>) {
+        for (id, value) in lifetime.iter_mut() {
+            if let Some(&old) = self.lifetime.get(id) {
+                if *value < old && crate::stats::is_regression_guarded(id) {
+                    *value = old;
+                }
+            }
+        }
         if self.baseline.is_none() {
             self.baseline = Some(lifetime.clone());
         }
@@ -76,5 +83,26 @@ mod tests {
         assert!(!tracker.has_data());
         tracker.update(values(&[("kills", 1.0)]));
         assert!(tracker.has_data());
+    }
+
+    #[test]
+    fn guarded_stat_ignores_a_lower_value_from_a_later_update() {
+        // "kills" is an Achievement-sourced stat, one of the two sources
+        // (Achievement, Deaths) known to occasionally regress due to a
+        // transient GW2 API bug.
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.update(values(&[("kills", 90.0)]));
+        assert_eq!(tracker.lifetime_value("kills"), 100.0);
+    }
+
+    #[test]
+    fn unguarded_stat_accepts_a_lower_value_from_a_later_update() {
+        // "gold" is a Currency-sourced stat - spending is real, a drop
+        // must not be clamped away.
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("gold", 100.0)]));
+        tracker.update(values(&[("gold", 90.0)]));
+        assert_eq!(tracker.lifetime_value("gold"), 90.0);
     }
 }

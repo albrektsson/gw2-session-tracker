@@ -6,6 +6,14 @@ pub struct Config {
     pub api_key: Option<String>,
     #[serde(default = "default_selected_stats")]
     pub selected_stats: Vec<String>,
+    #[serde(default = "default_background_opacity")]
+    pub background_opacity: f32,
+    #[serde(default = "default_text_scale")]
+    pub text_scale: f32,
+    #[serde(default)]
+    pub bold_text: bool,
+    #[serde(default = "default_text_color")]
+    pub text_color: [f32; 4],
 }
 
 impl Default for Config {
@@ -13,6 +21,10 @@ impl Default for Config {
         Self {
             api_key: None,
             selected_stats: default_selected_stats(),
+            background_opacity: default_background_opacity(),
+            text_scale: default_text_scale(),
+            bold_text: false,
+            text_color: default_text_color(),
         }
     }
 }
@@ -22,6 +34,18 @@ fn default_selected_stats() -> Vec<String> {
         .into_iter()
         .map(String::from)
         .collect()
+}
+
+fn default_background_opacity() -> f32 {
+    0.35
+}
+
+fn default_text_scale() -> f32 {
+    1.0
+}
+
+fn default_text_color() -> [f32; 4] {
+    [1.0, 0.85, 0.3, 1.0]
 }
 
 const CONFIG_FILE_NAME: &str = "session_tracker_config.json";
@@ -59,6 +83,10 @@ mod tests {
         let config = Config {
             api_key: Some("ABC-123".to_string()),
             selected_stats: vec!["kdr".to_string(), "kills".to_string()],
+            background_opacity: 0.75,
+            text_scale: 1.5,
+            bold_text: true,
+            text_color: [0.1, 0.2, 0.3, 1.0],
         };
         save_config(dir.path(), &config).unwrap();
         let loaded = load_config(dir.path());
@@ -80,6 +108,10 @@ mod tests {
         let config = load_config(dir.path());
         assert_eq!(config.api_key, Some("ABC".to_string()));
         assert_eq!(config.selected_stats, default_selected_stats());
+        assert_eq!(config.background_opacity, default_background_opacity());
+        assert_eq!(config.text_scale, default_text_scale());
+        assert!(!config.bold_text);
+        assert_eq!(config.text_color, default_text_color());
     }
 
     #[test]
@@ -89,5 +121,11 @@ mod tests {
             config.selected_stats,
             vec!["kills", "deaths", "kdr", "wvw_rank"]
         );
+    }
+
+    #[test]
+    fn default_config_has_default_background_opacity() {
+        let config = Config::default();
+        assert_eq!(config.background_opacity, 0.35);
     }
 }

@@ -50,7 +50,14 @@ fn load() {
         config.api_key.is_some()
     );
 
-    let shared = Arc::new(Mutex::new(AppState::new(config.api_key, config.selected_stats)));
+    let shared = Arc::new(Mutex::new(AppState::new(
+        config.api_key,
+        config.selected_stats,
+        config.background_opacity,
+        config.text_scale,
+        config.bold_text,
+        config.text_color,
+    )));
     if SHARED_STATE.set(shared).is_err() {
         panic!("load() called twice without unload()");
     }

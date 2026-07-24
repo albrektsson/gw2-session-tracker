@@ -37,6 +37,15 @@ fn category_display_name(category: Category) -> &'static str {
         Category::Fractal => "Fractal",
         Category::Raid => "Raid",
         Category::Strike => "Strike Mission",
+        Category::BasicCraftingMaterials => "Basic Crafting Materials",
+        Category::IntermediateCraftingMaterials => "Intermediate Crafting Materials",
+        Category::AdvancedCraftingMaterials => "Advanced Crafting Materials",
+        Category::AscendedMaterials => "Ascended Materials",
+        Category::GemstonesAndJewels => "Gemstones and Jewels",
+        Category::CookingMaterials => "Cooking Materials",
+        Category::CookingIngredients => "Cooking Ingredients",
+        Category::ScribingMaterials => "Scribing Materials",
+        Category::FestiveMaterials => "Festive Materials",
     }
 }
 
@@ -89,7 +98,15 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
                     .iter()
                     .filter(|s| state.selected_stats.iter().any(|id| id == s.id))
                     .count();
-                let header_label = format!("{name} ({selected_count}/{} selected)", stats.len());
+                // "###name" pins the widget's identity to the stable
+                // category name, decoupled from the displayed text - the
+                // displayed part includes selected_count, which changes on
+                // every toggle. Without the "###" split, ImGui derives
+                // identity from the whole label by default, so a changing
+                // count would make it treat every toggle as a brand new
+                // (closed) header instead of the same one staying open.
+                let header_label =
+                    format!("{name} ({selected_count}/{} selected)###{name}", stats.len());
 
                 if !ui.collapsing_header(header_label, TreeNodeFlags::empty()) {
                     continue;
