@@ -153,6 +153,7 @@ mod tests {
                 pvp_ranked_losses: 0,
                 pvp_unranked_wins: 0,
                 pvp_unranked_losses: 0,
+                items: Default::default(),
             })
         };
 
@@ -192,6 +193,7 @@ mod tests {
                 pvp_ranked_losses: 0,
                 pvp_unranked_wins: 0,
                 pvp_unranked_losses: 0,
+                items: Default::default(),
             })
         };
 

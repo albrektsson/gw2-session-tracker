@@ -1,12 +1,25 @@
-use nexus::imgui::Ui;
+use nexus::imgui::{TableColumnFlags, TableColumnSetup, TableFlags, Ui};
 use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Instant,
 };
-use session_tracker_core::stats::resolve_selected_stats;
+use session_tracker_core::{format::format_thousands, stats::resolve_selected_stats};
 use session_tracker_net::state::{AppState, PollStatus};
 
 pub static SHOW_MAIN: AtomicBool = AtomicBool::new(false);
+
+/// Session KDR from the session kills/deaths deltas, falling back to raw
+/// kills when there have been no deaths this session (mirrors the
+/// lifetime KDR fallback in `compute_lifetime_values`).
+fn session_kdr(state: &AppState, kills_id: &str) -> f64 {
+    let session_kills = state.session.session_value(kills_id);
+    let session_deaths = state.session.session_value("deaths");
+    if session_deaths > 0.0 {
+        session_kills / session_deaths
+    } else {
+        session_kills
+    }
+}
 
 pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
     nexus::imgui::Window::new("Session Tracker").build(ui, || {
@@ -47,10 +60,23 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
             return;
         }
 
-        if let Some(_table) = ui.begin_table("wvw-stats-table", 3) {
-            ui.table_setup_column("Stat");
-            ui.table_setup_column("Session");
-            ui.table_setup_column("Lifetime");
+        let table_flags = TableFlags::RESIZABLE;
+        if let Some(_table) = ui.begin_table_with_flags("wvw-stats-table", 3, table_flags) {
+            ui.table_setup_column_with(TableColumnSetup {
+                flags: TableColumnFlags::WIDTH_STRETCH,
+                init_width_or_weight: 3.0,
+                ..TableColumnSetup::new("Stat")
+            });
+            ui.table_setup_column_with(TableColumnSetup {
+                flags: TableColumnFlags::WIDTH_STRETCH,
+                init_width_or_weight: 1.0,
+                ..TableColumnSetup::new("Session")
+            });
+            ui.table_setup_column_with(TableColumnSetup {
+                flags: TableColumnFlags::WIDTH_STRETCH,
+                init_width_or_weight: 1.0,
+                ..TableColumnSetup::new("Lifetime")
+            });
             ui.table_headers_row();
 
             for stat in selected {
@@ -58,26 +84,20 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                 ui.table_next_column();
                 ui.text(stat.display_name);
                 ui.table_next_column();
-                let session_value = if stat.id == "kdr" {
-                    // KDR is a ratio, not a count: diffing lifetime KDR at
-                    // session start vs. now (the generic session_value
-                    // behavior) produces a meaningless number. Compute it
-                    // properly from the session kills/deaths deltas instead,
-                    // matching the zero-deaths fallback convention used for
-                    // lifetime KDR in compute_lifetime_values.
-                    let session_kills = state.session.session_value("kills");
-                    let session_deaths = state.session.session_value("deaths");
-                    if session_deaths > 0.0 {
-                        session_kills / session_deaths
-                    } else {
-                        session_kills
-                    }
-                } else {
-                    state.session.session_value(stat.id)
+                // KDR-shaped stats are ratios, not counts: diffing lifetime
+                // KDR at session start vs. now (the generic session_value
+                // behavior) produces a meaningless number. Compute them
+                // properly from the session kills/deaths deltas instead,
+                // matching the zero-deaths fallback convention used for
+                // lifetime KDR in compute_lifetime_values.
+                let session_value = match stat.id {
+                    "kdr" => session_kdr(&state, "kills"),
+                    "pvp_kdr" => session_kdr(&state, "pvp_kills"),
+                    _ => state.session.session_value(stat.id),
                 };
-                ui.text(format!("{:.0}", session_value));
+                ui.text(format_thousands(session_value));
                 ui.table_next_column();
-                ui.text(format!("{:.0}", state.session.lifetime_value(stat.id)));
+                ui.text(format_thousands(state.session.lifetime_value(stat.id)));
             }
         }
     });

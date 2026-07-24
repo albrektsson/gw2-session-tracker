@@ -64,10 +64,11 @@ fn authorized_get_optional(url: &str, api_key: &str) -> Result<Option<String>, A
     }
 }
 
-/// Fetches account, achievements, character, wallet, and PvP data from the
-/// official GW2 API and combines them into a single [`ApiSnapshot`].
-/// Wallet/PvP data is optional - a key without the `wallet`/`pvp` scopes
-/// still succeeds, just with those stats reading as zero.
+/// Fetches account, achievements, character, wallet, PvP, and item
+/// (bank/shared inventory/materials) data from the official GW2 API and
+/// combines them into a single [`ApiSnapshot`]. Wallet/PvP/item data is
+/// optional - a key without the `wallet`/`pvp`/`inventories` scopes still
+/// succeeds, just with those stats reading as zero.
 pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
     let account_json = authorized_get("https://api.guildwars2.com/v2/account", api_key)?;
     let achievements_json = authorized_get(
@@ -83,6 +84,11 @@ pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
         authorized_get_optional("https://api.guildwars2.com/v2/account/wallet", api_key)?;
     let pvp_stats_json =
         authorized_get_optional("https://api.guildwars2.com/v2/pvp/stats", api_key)?;
+    let bank_json = authorized_get_optional("https://api.guildwars2.com/v2/account/bank", api_key)?;
+    let shared_inventory_json =
+        authorized_get_optional("https://api.guildwars2.com/v2/account/inventory", api_key)?;
+    let materials_json =
+        authorized_get_optional("https://api.guildwars2.com/v2/account/materials", api_key)?;
 
     let account = api::parse_account(&account_json)?;
     let achievements = api::parse_achievements(&achievements_json)?;
@@ -94,11 +100,26 @@ pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
     let pvp_stats = pvp_stats_json
         .map(|json| api::parse_pvp_stats(&json))
         .transpose()?;
-    Ok(api::build_snapshot(
+    let bank = bank_json
+        .map(|json| api::parse_bank(&json))
+        .transpose()?
+        .unwrap_or_default();
+    let shared_inventory = shared_inventory_json
+        .map(|json| api::parse_shared_inventory(&json))
+        .transpose()?
+        .unwrap_or_default();
+    let materials = materials_json
+        .map(|json| api::parse_materials(&json))
+        .transpose()?
+        .unwrap_or_default();
+    Ok(api::build_snapshot(api::FetchedData {
         account,
         achievements,
         characters,
         wallet,
         pvp_stats,
-    ))
+        bank,
+        shared_inventory,
+        materials,
+    }))
 }

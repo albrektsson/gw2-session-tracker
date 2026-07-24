@@ -19,6 +19,7 @@ pub enum StatSource {
     PvpCustomWins,
     PvpCustomLosses,
     PvpKdr,
+    Item(u32),
 }
 
 /// A stat's browsing category in the Select Stats picker. Purely a UI
@@ -54,7 +55,7 @@ pub struct StatDef {
     pub categories: &'static [Category],
 }
 
-use Category::{Currency as Cur, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw};
+use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw};
 
 pub const STAT_CATALOG: &[StatDef] = &[
     // WvW
@@ -157,6 +158,41 @@ pub const STAT_CATALOG: &[StatDef] = &[
     StatDef { id: "antiquated_ducat", display_name: "Antiquated Ducat", source: StatSource::Currency(81), categories: &[Cur] },
     StatDef { id: "testimony_of_castoran_heroics", display_name: "Testimony of Castoran Heroics", source: StatSource::Currency(82), categories: &[Cur] },
     StatDef { id: "aether_rich_sap", display_name: "Aether-Rich Sap", source: StatSource::Currency(83), categories: &[Cur] },
+    // Items - current possession counts (bags + bank + shared inventory +
+    // material storage), not lifetime totals, hence "(current)" in the name.
+    StatDef { id: "heavy_loot_bag", display_name: "Heavy Loot Bag (current)", source: StatSource::Item(8920), categories: &[Wvw] },
+    StatDef { id: "memory_of_battle", display_name: "Memory of Battle (current)", source: StatSource::Item(71581), categories: &[Wvw] },
+    StatDef { id: "emblem_of_the_avenger", display_name: "Emblem of the Avenger (current)", source: StatSource::Item(93075), categories: &[Wvw] },
+    StatDef { id: "emblem_of_the_conqueror", display_name: "Emblem of the Conqueror (current)", source: StatSource::Item(93146), categories: &[Wvw] },
+    StatDef { id: "grandmaster_mark_shard", display_name: "Grandmaster Mark Shard (current)", source: StatSource::Item(87557), categories: &[Wvw] },
+    StatDef { id: "skirmish_chest_1", display_name: "Skirmish Chest Tier 1 (current)", source: StatSource::Item(84966), categories: &[Wvw] },
+    StatDef { id: "skirmish_chest_2", display_name: "Skirmish Chest Tier 2 (current)", source: StatSource::Item(96536), categories: &[Wvw] },
+    StatDef { id: "unidentified_gear_common", display_name: "Piece of Common Unidentified Gear (current)", source: StatSource::Item(85016), categories: &[Misc] },
+    StatDef { id: "unidentified_gear", display_name: "Piece of Unidentified Gear (current)", source: StatSource::Item(84731), categories: &[Misc] },
+    StatDef { id: "unidentified_gear_rare", display_name: "Piece of Rare Unidentified Gear (current)", source: StatSource::Item(83008), categories: &[Misc] },
+    StatDef { id: "essence_of_luck_fine", display_name: "Essence of Luck, Fine (current)", source: StatSource::Item(45175), categories: &[Misc] },
+    StatDef { id: "essence_of_luck_masterwork", display_name: "Essence of Luck, Masterwork (current)", source: StatSource::Item(45176), categories: &[Misc] },
+    StatDef { id: "essence_of_luck_rare", display_name: "Essence of Luck, Rare (current)", source: StatSource::Item(45177), categories: &[Misc] },
+    StatDef { id: "essence_of_luck_exotic", display_name: "Essence of Luck, Exotic (current)", source: StatSource::Item(45178), categories: &[Misc] },
+    StatDef { id: "essence_of_luck_legendary", display_name: "Essence of Luck, Legendary (current)", source: StatSource::Item(45179), categories: &[Misc] },
+    StatDef { id: "mystic_coin", display_name: "Mystic Coin (current)", source: StatSource::Item(19976), categories: &[Fractal, Raid] },
+    StatDef { id: "fractal_encryption", display_name: "Fractal Encryption (current)", source: StatSource::Item(75919), categories: &[Fractal] },
+    StatDef { id: "coffer_of_the_dragon_ball_champion", display_name: "Coffer of the Dragon Ball Champion (current)", source: StatSource::Item(68617), categories: &[Festival] },
+    StatDef { id: "little_lucky_envelope", display_name: "Little Lucky Envelope (current)", source: StatSource::Item(68645), categories: &[Festival] },
+    StatDef { id: "divine_lucky_envelope", display_name: "Divine Lucky Envelope (current)", source: StatSource::Item(68646), categories: &[Festival] },
+    StatDef { id: "dragon_ball_champions_divine_lucky_envelope", display_name: "Dragon Ball Champion's Divine Lucky Envelope (current)", source: StatSource::Item(68647), categories: &[Festival] },
+    StatDef { id: "lucky_red_bag", display_name: "Lucky Red Bag (current)", source: StatSource::Item(94653), categories: &[Festival] },
+    StatDef { id: "token_of_the_celestial_champion", display_name: "Token of the Celestial Champion (current)", source: StatSource::Item(92659), categories: &[Festival] },
+    StatDef { id: "token_of_the_celestial_champion_fragment", display_name: "Token of the Celestial Champion Fragment (current)", source: StatSource::Item(94668), categories: &[Festival] },
+    StatDef { id: "token_of_the_dragon_ball_champion", display_name: "Token of the Dragon Ball Champion (current)", source: StatSource::Item(68618), categories: &[Festival] },
+    StatDef { id: "bauble", display_name: "Bauble (current)", source: StatSource::Item(39752), categories: &[Festival] },
+    StatDef { id: "bauble_bubble", display_name: "Bauble Bubble (current)", source: StatSource::Item(41886), categories: &[Festival] },
+    StatDef { id: "continue_coin", display_name: "Continue Coin (current)", source: StatSource::Item(41824), categories: &[Festival] },
+    StatDef { id: "crimson_assassin_token", display_name: "Crimson Assassin Token (current)", source: StatSource::Item(80890), categories: &[Festival] },
+    StatDef { id: "fancy_furniture_coin", display_name: "Fancy Furniture Coin (current)", source: StatSource::Item(78062), categories: &[Festival] },
+    StatDef { id: "dragon_coffer", display_name: "Dragon Coffer (current)", source: StatSource::Item(43357), categories: &[Festival] },
+    StatDef { id: "trick_or_treat_bag", display_name: "Trick-or-Treat Bag (current)", source: StatSource::Item(36038), categories: &[Festival] },
+    StatDef { id: "wintersday_gift", display_name: "Wintersday Gift (current)", source: StatSource::Item(77604), categories: &[Festival] },
 ];
 
 pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, f64> {
@@ -177,6 +213,7 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
             StatSource::PvpRankedLosses => snapshot.pvp_ranked_losses as f64,
             StatSource::PvpUnrankedWins => snapshot.pvp_unranked_wins as f64,
             StatSource::PvpUnrankedLosses => snapshot.pvp_unranked_losses as f64,
+            StatSource::Item(id) => snapshot.items.get(&id).copied().unwrap_or(0) as f64,
             // computed below once their inputs are known
             StatSource::Kdr
             | StatSource::PvpKdr
@@ -302,6 +339,7 @@ mod tests {
             pvp_ranked_losses: 0,
             pvp_unranked_wins: 0,
             pvp_unranked_losses: 0,
+            items: StdHashMap::new(),
         }
     }
 
@@ -343,9 +381,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_ninety_six_stats() {
-        // 17 WvW + 12 PvP + 67 currencies
-        assert_eq!(STAT_CATALOG.len(), 96);
+    fn catalog_has_one_hundred_twenty_nine_stats() {
+        // 17 WvW + 12 PvP + 67 currencies + 33 items
+        assert_eq!(STAT_CATALOG.len(), 129);
     }
 
     #[test]
@@ -355,6 +393,48 @@ mod tests {
             .filter(|s| matches!(s.source, StatSource::Currency(_)))
             .count();
         assert_eq!(count, 67);
+    }
+
+    #[test]
+    fn catalog_has_thirty_three_items() {
+        let count = STAT_CATALOG
+            .iter()
+            .filter(|s| matches!(s.source, StatSource::Item(_)))
+            .count();
+        assert_eq!(count, 33);
+    }
+
+    #[test]
+    fn item_stats_are_labeled_current_not_lifetime() {
+        for stat in STAT_CATALOG.iter().filter(|s| matches!(s.source, StatSource::Item(_))) {
+            assert!(
+                stat.display_name.ends_with("(current)"),
+                "{} should be labeled (current)",
+                stat.display_name
+            );
+        }
+    }
+
+    #[test]
+    fn mystic_coin_is_tagged_fractal_and_raid() {
+        let mystic_coin = STAT_CATALOG.iter().find(|s| s.id == "mystic_coin").unwrap();
+        assert!(mystic_coin.categories.contains(&Category::Fractal));
+        assert!(mystic_coin.categories.contains(&Category::Raid));
+    }
+
+    #[test]
+    fn maps_item_ids_to_stat_values() {
+        let mut snap = snapshot(0, &[], 0);
+        snap.items.insert(8920, 12);
+        let values = compute_lifetime_values(&snap);
+        assert_eq!(values["heavy_loot_bag"], 12.0);
+    }
+
+    #[test]
+    fn missing_item_defaults_to_zero() {
+        let snap = snapshot(0, &[], 0);
+        let values = compute_lifetime_values(&snap);
+        assert_eq!(values["memory_of_battle"], 0.0);
     }
 
     #[test]

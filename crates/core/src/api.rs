@@ -17,6 +17,27 @@ pub struct AchievementProgress {
 pub struct CharacterCore {
     #[serde(default)]
     pub deaths: Option<u64>,
+    /// `None` when the `inventories` scope isn't granted (the field is
+    /// absent from the response entirely, not an empty list).
+    #[serde(default)]
+    pub bags: Option<Vec<Option<CharacterBag>>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CharacterBag {
+    pub inventory: Vec<Option<AccountItem>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AccountItem {
+    pub id: u32,
+    pub count: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AccountMaterial {
+    pub id: u32,
+    pub count: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,6 +76,7 @@ pub struct ApiSnapshot {
     pub pvp_ranked_losses: u64,
     pub pvp_unranked_wins: u64,
     pub pvp_unranked_losses: u64,
+    pub items: HashMap<u32, u64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -90,19 +112,69 @@ pub fn parse_pvp_stats(json: &str) -> Result<PvpStatsResponse, ApiError> {
     serde_json::from_str(json).map_err(|e| ApiError(format!("invalid pvp stats response: {e}")))
 }
 
-pub fn build_snapshot(
-    account: AccountResponse,
-    achievements: Vec<AchievementProgress>,
-    characters: Vec<CharacterCore>,
-    wallet: Vec<WalletEntry>,
-    pvp_stats: Option<PvpStatsResponse>,
-) -> ApiSnapshot {
+pub fn parse_bank(json: &str) -> Result<Vec<Option<AccountItem>>, ApiError> {
+    serde_json::from_str(json).map_err(|e| ApiError(format!("invalid bank response: {e}")))
+}
+
+pub fn parse_shared_inventory(json: &str) -> Result<Vec<Option<AccountItem>>, ApiError> {
+    serde_json::from_str(json)
+        .map_err(|e| ApiError(format!("invalid shared inventory response: {e}")))
+}
+
+pub fn parse_materials(json: &str) -> Result<Vec<AccountMaterial>, ApiError> {
+    serde_json::from_str(json).map_err(|e| ApiError(format!("invalid materials response: {e}")))
+}
+
+/// The raw parsed responses from every GW2 API call `fetch_snapshot`
+/// makes, bundled together so `build_snapshot` doesn't take eight
+/// positional parameters.
+pub struct FetchedData {
+    pub account: AccountResponse,
+    pub achievements: Vec<AchievementProgress>,
+    pub characters: Vec<CharacterCore>,
+    pub wallet: Vec<WalletEntry>,
+    pub pvp_stats: Option<PvpStatsResponse>,
+    pub bank: Vec<Option<AccountItem>>,
+    pub shared_inventory: Vec<Option<AccountItem>>,
+    pub materials: Vec<AccountMaterial>,
+}
+
+pub fn build_snapshot(data: FetchedData) -> ApiSnapshot {
+    let FetchedData {
+        account,
+        achievements,
+        characters,
+        wallet,
+        pvp_stats,
+        bank,
+        shared_inventory,
+        materials,
+    } = data;
     let achievements = achievements
         .into_iter()
         .map(|a| (a.id, a.current.unwrap_or(0)))
         .collect();
     let total_deaths = characters.iter().map(|c| c.deaths.unwrap_or(0)).sum();
     let currencies = wallet.into_iter().map(|w| (w.id, w.value)).collect();
+
+    let mut items: HashMap<u32, u64> = HashMap::new();
+    let mut add_item = |id: u32, count: u32| *items.entry(id).or_insert(0) += count as u64;
+    for character in &characters {
+        for bag in character.bags.iter().flatten().flatten() {
+            for slot in bag.inventory.iter().flatten() {
+                add_item(slot.id, slot.count);
+            }
+        }
+    }
+    for slot in bank.iter().flatten() {
+        add_item(slot.id, slot.count);
+    }
+    for slot in shared_inventory.iter().flatten() {
+        add_item(slot.id, slot.count);
+    }
+    for material in &materials {
+        add_item(material.id, material.count);
+    }
     let (
         pvp_rank,
         pvp_wins,
@@ -142,6 +214,7 @@ pub fn build_snapshot(
         pvp_ranked_losses,
         pvp_unranked_wins,
         pvp_unranked_losses,
+        items,
     }
 }
 
@@ -182,10 +255,19 @@ mod tests {
             AchievementProgress { id: 288, current: None },
         ];
         let characters = vec![
-            CharacterCore { deaths: Some(10) },
-            CharacterCore { deaths: Some(5) },
+            CharacterCore { deaths: Some(10), bags: None },
+            CharacterCore { deaths: Some(5), bags: None },
         ];
-        let snapshot = build_snapshot(account, achievements, characters, vec![], None);
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements,
+            characters,
+            wallet: vec![],
+            pvp_stats: None,
+            bank: vec![],
+            shared_inventory: vec![],
+            materials: vec![],
+        });
         assert_eq!(snapshot.wvw_rank, 42);
         assert_eq!(snapshot.achievements.get(&283), Some(&500));
         assert_eq!(snapshot.achievements.get(&288), Some(&0));
@@ -195,7 +277,16 @@ mod tests {
     #[test]
     fn build_snapshot_defaults_currencies_and_pvp_when_omitted() {
         let account = AccountResponse { wvw_rank: None };
-        let snapshot = build_snapshot(account, vec![], vec![], vec![], None);
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements: vec![],
+            characters: vec![],
+            wallet: vec![],
+            pvp_stats: None,
+            bank: vec![],
+            shared_inventory: vec![],
+            materials: vec![],
+        });
         assert!(snapshot.currencies.is_empty());
         assert_eq!(snapshot.pvp_rank, 0);
         assert_eq!(snapshot.pvp_wins, 0);
@@ -205,6 +296,7 @@ mod tests {
         assert_eq!(snapshot.pvp_ranked_losses, 0);
         assert_eq!(snapshot.pvp_unranked_wins, 0);
         assert_eq!(snapshot.pvp_unranked_losses, 0);
+        assert!(snapshot.items.is_empty());
     }
 
     #[test]
@@ -224,7 +316,16 @@ mod tests {
             aggregate: PvpAggregate { wins: 120, losses: 80 },
             ladders,
         };
-        let snapshot = build_snapshot(account, vec![], vec![], wallet, Some(pvp_stats));
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements: vec![],
+            characters: vec![],
+            wallet,
+            pvp_stats: Some(pvp_stats),
+            bank: vec![],
+            shared_inventory: vec![],
+            materials: vec![],
+        });
         assert_eq!(snapshot.currencies.get(&1), Some(&100001));
         assert_eq!(snapshot.currencies.get(&4), Some(&50));
         assert_eq!(snapshot.pvp_rank, 47); // pvp_rank + rollovers
@@ -247,7 +348,16 @@ mod tests {
             aggregate: PvpAggregate { wins: 0, losses: 0 },
             ladders: HashMap::new(),
         };
-        let snapshot = build_snapshot(account, vec![], vec![], vec![], Some(pvp_stats));
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements: vec![],
+            characters: vec![],
+            wallet: vec![],
+            pvp_stats: Some(pvp_stats),
+            bank: vec![],
+            shared_inventory: vec![],
+            materials: vec![],
+        });
         assert_eq!(snapshot.pvp_ranked_wins, 0);
         assert_eq!(snapshot.pvp_ranked_losses, 0);
         assert_eq!(snapshot.pvp_unranked_wins, 0);
@@ -299,5 +409,105 @@ mod tests {
     fn parse_account_rejects_invalid_json() {
         let err = parse_account("not json").unwrap_err();
         assert!(err.0.contains("invalid account response"));
+    }
+
+    #[test]
+    fn parses_bank_with_null_slots() {
+        let json = r#"[{"id": 19675, "count": 80}, null, {"id": 74, "count": 1}]"#;
+        let bank = parse_bank(json).unwrap();
+        assert_eq!(bank.len(), 3);
+        assert!(bank[1].is_none());
+        assert_eq!(bank[0].as_ref().unwrap().id, 19675);
+        assert_eq!(bank[0].as_ref().unwrap().count, 80);
+    }
+
+    #[test]
+    fn parses_shared_inventory_with_null_slots() {
+        let json = r#"[null, {"id": 44602, "count": 1, "binding": "Account"}]"#;
+        let shared = parse_shared_inventory(json).unwrap();
+        assert!(shared[0].is_none());
+        assert_eq!(shared[1].as_ref().unwrap().id, 44602);
+    }
+
+    #[test]
+    fn parses_materials_with_no_null_entries() {
+        let json = r#"[{"id": 12134, "category": 5, "count": 64}, {"id": 24876, "category": 30, "count": 0}]"#;
+        let materials = parse_materials(json).unwrap();
+        assert_eq!(materials.len(), 2);
+        assert_eq!(materials[0].id, 12134);
+        assert_eq!(materials[0].count, 64);
+        assert_eq!(materials[1].count, 0);
+    }
+
+    #[test]
+    fn parses_characters_with_bags_when_inventories_scope_granted() {
+        let json = r#"[{
+            "name": "A",
+            "deaths": 1,
+            "bags": [
+                {"id": 1, "size": 4, "inventory": [{"id": 8920, "count": 3}, null]},
+                null
+            ]
+        }]"#;
+        let characters = parse_characters(json).unwrap();
+        let bags = characters[0].bags.as_ref().unwrap();
+        assert_eq!(bags.len(), 2);
+        assert!(bags[1].is_none());
+        let bag = bags[0].as_ref().unwrap();
+        assert_eq!(bag.inventory[0].as_ref().unwrap().id, 8920);
+        assert!(bag.inventory[1].is_none());
+    }
+
+    #[test]
+    fn parses_characters_without_bags_field_when_inventories_scope_missing() {
+        let json = r#"[{"name": "A", "deaths": 1}]"#;
+        let characters = parse_characters(json).unwrap();
+        assert!(characters[0].bags.is_none());
+    }
+
+    #[test]
+    fn build_snapshot_sums_item_count_across_bags_bank_shared_and_materials() {
+        let account = AccountResponse { wvw_rank: None };
+        let characters = vec![CharacterCore {
+            deaths: None,
+            bags: Some(vec![
+                Some(CharacterBag {
+                    inventory: vec![Some(AccountItem { id: 8920, count: 3 }), None],
+                }),
+                None,
+            ]),
+        }];
+        let bank = vec![Some(AccountItem { id: 8920, count: 5 }), None];
+        let shared = vec![Some(AccountItem { id: 8920, count: 2 })];
+        let materials = vec![AccountMaterial { id: 8920, count: 10 }];
+
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements: vec![],
+            characters,
+            wallet: vec![],
+            pvp_stats: None,
+            bank,
+            shared_inventory: shared,
+            materials,
+        });
+        assert_eq!(snapshot.items.get(&8920), Some(&20)); // 3 + 5 + 2 + 10
+    }
+
+    #[test]
+    fn build_snapshot_item_count_is_zero_when_bags_absent_and_no_other_sources() {
+        let account = AccountResponse { wvw_rank: None };
+        let characters = vec![CharacterCore { deaths: None, bags: None }];
+        let snapshot = build_snapshot(FetchedData {
+            account,
+            achievements: vec![],
+            characters,
+            wallet: vec![],
+            pvp_stats: None,
+            bank: vec![],
+            shared_inventory: vec![],
+            materials: vec![],
+        });
+        assert_eq!(snapshot.items.get(&8920), None);
     }
 }
