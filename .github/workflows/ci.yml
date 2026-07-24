@@ -46,3 +46,8 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # ratchet:Swatinem/rust-cache@v2
       - name: cargo build (release)
         run: cargo build --locked --target x86_64-pc-windows-msvc --release -p session_tracker
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
+        with:
+          name: session_tracker.dll
+          path: target/x86_64-pc-windows-msvc/release/session_tracker.dll
+          if-no-files-found: error
