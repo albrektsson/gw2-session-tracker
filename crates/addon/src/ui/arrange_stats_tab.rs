@@ -6,13 +6,14 @@ use std::{
 use session_tracker_core::{
     config::save_config,
     stats::{move_stat_down, move_stat_up, resolve_selected_stats},
+    sync::lock_recover,
 };
 use session_tracker_net::state::{AppState, PollStatus};
 
 use super::settings_window::config_from_state;
 
 pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
-    let mut state = shared.lock().unwrap();
+    let mut state = lock_recover(shared);
     let selected = resolve_selected_stats(&state.selected_stats);
     if selected.is_empty() {
         ui.text("No stats selected. Use the Select Stats tab to pick some first.");

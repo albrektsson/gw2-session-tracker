@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-use session_tracker_core::{api::ApiSnapshot, session::SessionTracker, stats};
+use session_tracker_core::{api::ApiSnapshot, session::SessionTracker, stats, sync::lock_recover};
 
 #[derive(Debug, Clone)]
 pub enum PollStatus {
@@ -100,11 +100,11 @@ fn run_poller<F>(
             return;
         }
 
-        let api_key = shared.lock().unwrap().api_key.clone();
+        let api_key = lock_recover(&shared).api_key.clone();
         if let Some(api_key) = api_key {
             log::info!("polling GW2 API for WvW stats");
             let result = fetch(&api_key);
-            let mut state = shared.lock().unwrap();
+            let mut state = lock_recover(&shared);
             match result {
                 Ok(snapshot) => {
                     log::info!(

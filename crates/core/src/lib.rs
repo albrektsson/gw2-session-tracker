@@ -4,6 +4,7 @@ pub mod format;
 mod material_storage;
 pub mod session;
 pub mod stats;
+pub mod sync;
 
 #[cfg(test)]
 mod smoke_test {

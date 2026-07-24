@@ -9,20 +9,34 @@ use nexus::{
 };
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use ui::main_window::{render_main_window, SHOW_MAIN};
 use ui::settings_window::{render_settings_window, SHOW_SETTINGS};
-use session_tracker_core::config::load_config;
+use session_tracker_core::{config::load_config, sync::lock_recover};
 use session_tracker_net::{
     gw2_client::fetch_snapshot,
     state::{AppState, Poller},
 };
 
-static SHARED_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
-static ADDON_DIR: OnceLock<PathBuf> = OnceLock::new();
-static POLLER: OnceLock<Mutex<Poller>> = OnceLock::new();
+/// Everything `load()` sets up and `unload()` tears down, held behind a
+/// single resettable `Mutex<Option<_>>` rather than separate `OnceLock`s —
+/// a `OnceLock` can only ever be set once, so if Nexus ever re-invokes
+/// `load()` in the same process without a true `FreeLibrary`/`LoadLibrary`
+/// cycle in between, the old `OnceLock`s would panic instead of allowing
+/// a clean reload. Dropping the `Addon` (via `Option::take` in `unload()`)
+/// stops the poller through `Poller`'s `Drop` impl.
+struct Addon {
+    shared: Arc<Mutex<AppState>>,
+    addon_dir: PathBuf,
+    // Never read after construction; kept alive so its `Drop` stops the
+    // polling thread when the `Addon` is dropped in `unload()`.
+    #[allow(dead_code)]
+    poller: Poller,
+}
+
+static ADDON: Mutex<Option<Addon>> = Mutex::new(None);
 
 /// Default keybind for toggling the settings window, used both to
 /// register it and (since Nexus's addon API has no way to read back a
@@ -58,12 +72,6 @@ fn load() {
         config.bold_text,
         config.text_color,
     )));
-    if SHARED_STATE.set(shared).is_err() {
-        panic!("load() called twice without unload()");
-    }
-    if ADDON_DIR.set(addon_dir).is_err() {
-        panic!("load() called twice without unload()");
-    }
 
     register_render(RenderType::Render, render!(render_frame)).revert_on_unload();
 
@@ -90,35 +98,41 @@ fn load() {
         .revert_on_unload();
 
     let poller = Poller::spawn(
-        SHARED_STATE.get().expect("just set above").clone(),
+        shared.clone(),
         Duration::from_secs(60),
         |api_key| fetch_snapshot(api_key).map_err(|err| err.to_string()),
     );
-    POLLER
-        .set(Mutex::new(poller))
-        .unwrap_or_else(|_| panic!("load() called twice without unload()"));
+
+    let mut addon = lock_recover(&ADDON);
+    if addon.is_some() {
+        panic!("load() called twice without unload()");
+    }
+    *addon = Some(Addon {
+        shared,
+        addon_dir,
+        poller,
+    });
 }
 
 fn unload() {
     log::info!("Session Tracker addon unloading");
-    if let Some(poller) = POLLER.get() {
-        poller.lock().unwrap().stop();
-    }
+    // Dropping the `Addon` stops the poller (`Poller::drop`).
+    lock_recover(&ADDON).take();
 }
 
 /// Render callback for the main render pass. `nexus::gui::render!` requires
 /// a plain, non-capturing `fn(&Ui)` (it stores the callback in a `const`),
-/// so shared state is read from the module-level `OnceLock`s rather than
+/// so shared state is read from the module-level `ADDON` static rather than
 /// captured in a closure.
 fn render_frame(ui: &Ui) {
-    let shared = SHARED_STATE.get().expect("load() sets SHARED_STATE");
+    let guard = lock_recover(&ADDON);
+    let addon = guard.as_ref().expect("load() sets ADDON before render is registered");
 
     if SHOW_SETTINGS.load(std::sync::atomic::Ordering::Relaxed) {
-        let addon_dir = ADDON_DIR.get().expect("load() sets ADDON_DIR");
-        render_settings_window(ui, shared, addon_dir);
+        render_settings_window(ui, &addon.shared, &addon.addon_dir);
     }
 
     if SHOW_MAIN.load(std::sync::atomic::Ordering::Relaxed) {
-        render_main_window(ui, shared);
+        render_main_window(ui, &addon.shared);
     }
 }

@@ -4,7 +4,10 @@ use std::{
     path::Path,
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
-use session_tracker_core::config::{save_config, Config};
+use session_tracker_core::{
+    config::{save_config, Config},
+    sync::lock_recover,
+};
 use session_tracker_net::state::{AppState, PollStatus};
 
 use super::arrange_stats_tab::render_arrange_stats_tab;
@@ -64,7 +67,7 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
         let mut buf = input.borrow_mut();
 
         if !SEEDED.with(|seeded| seeded.get()) {
-            if let Some(existing) = &shared.lock().unwrap().api_key {
+            if let Some(existing) = &lock_recover(shared).api_key {
                 *buf = existing.clone();
             }
             SEEDED.with(|seeded| seeded.set(true));
@@ -74,9 +77,10 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
         ui.text("add wallet + pvp + inventories scopes too, to also see");
         ui.text("currency/PvP/item stats):");
         ui.input_text("##api_key", &mut buf).password(true).build();
+        ui.text_disabled("Stored unencrypted in session_tracker_config.json.");
 
         if ui.button("Save") {
-            let mut state = shared.lock().unwrap();
+            let mut state = lock_recover(shared);
             let trimmed = buf.trim();
             if trimmed.is_empty() {
                 state.status = PollStatus::Error("API key can't be empty".to_string());
@@ -95,7 +99,7 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
     });
 
     {
-        let state = shared.lock().unwrap();
+        let state = lock_recover(shared);
         match &state.status {
             PollStatus::AwaitingApiKey => {
                 if JUST_SAVED.with(|s| s.get()) {
@@ -109,7 +113,7 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
         }
     }
 
-    let mut state = shared.lock().unwrap();
+    let mut state = lock_recover(shared);
 
     ui.separator();
     ui.text("Main window background opacity:");

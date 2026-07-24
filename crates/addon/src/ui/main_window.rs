@@ -6,6 +6,7 @@ use std::{
 use session_tracker_core::{
     format::{format_coin, format_thousands},
     stats::{pvp_rank_tier, resolve_selected_stats},
+    sync::lock_recover,
 };
 use session_tracker_net::state::{AppState, PollStatus};
 
@@ -92,7 +93,7 @@ fn draw_text(ui: &Ui, color: [f32; 4], text: &str, bold: bool) {
 }
 
 pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
-    let state = shared.lock().unwrap();
+    let state = lock_recover(shared);
     nexus::imgui::Window::new("Session Tracker")
         .bg_alpha(state.background_opacity)
         .no_decoration()

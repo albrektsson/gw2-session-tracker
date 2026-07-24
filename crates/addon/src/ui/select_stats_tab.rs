@@ -10,6 +10,7 @@ use session_tracker_core::{
         select_all, select_ids, toggle_stat, unselect_all, unselect_ids, Category, StatDef,
         STAT_CATALOG, SUPERCATEGORIES,
     },
+    sync::lock_recover,
 };
 use session_tracker_net::state::AppState;
 
@@ -65,13 +66,13 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
             .build();
 
         if ui.button("Select all") {
-            let mut state = shared.lock().unwrap();
+            let mut state = lock_recover(shared);
             select_all(&mut state.selected_stats);
             persist(&state, addon_dir);
         }
         ui.same_line();
         if ui.button("Unselect all") {
-            let mut state = shared.lock().unwrap();
+            let mut state = lock_recover(shared);
             unselect_all(&mut state.selected_stats);
             persist(&state, addon_dir);
         }
@@ -79,7 +80,7 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
         ui.separator();
 
         let needle = query.to_lowercase();
-        let mut state = shared.lock().unwrap();
+        let mut state = lock_recover(shared);
 
         for (supercategory_name, subcategories) in SUPERCATEGORIES {
             if !ui.collapsing_header(*supercategory_name, TreeNodeFlags::DEFAULT_OPEN) {
