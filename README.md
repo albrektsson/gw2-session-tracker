@@ -1,5 +1,7 @@
 # Session Tracker
 
+[![CI](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/albrektsson/gw2-session-tracker/actions/workflows/ci.yml)
+
 A [Raidcore Nexus](https://raidcore.gg/Nexus) addon for Guild Wars 2 that
 shows a window of GW2 stats, each tracked as both a **session** value (how
 much it's increased since a tracking session started) and a **lifetime**

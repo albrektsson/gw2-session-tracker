@@ -44,7 +44,16 @@ jobs:
         with:
           targets: x86_64-pc-windows-gnu
       - name: Install mingw-w64
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          # Ubuntu ships both win32- and posix-threading-model mingw-w64
+          # variants via update-alternatives. The win32 variant (the
+          # default) is missing symbols (e.g. __mingwthr_key_dtor) that
+          # our static -lwinpthread/-lgcc linking in .cargo/config.toml
+          # needs - select posix explicitly.
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # ratchet:Swatinem/rust-cache@v2
       - name: cargo build (release)
         run: cargo build --locked --target x86_64-pc-windows-gnu --release -p session_tracker
