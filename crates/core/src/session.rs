@@ -1,0 +1,80 @@
+use std::collections::HashMap;
+
+#[derive(Debug, Default)]
+pub struct SessionTracker {
+    baseline: Option<HashMap<&'static str, f64>>,
+    lifetime: HashMap<&'static str, f64>,
+}
+
+impl SessionTracker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn update(&mut self, lifetime: HashMap<&'static str, f64>) {
+        if self.baseline.is_none() {
+            self.baseline = Some(lifetime.clone());
+        }
+        self.lifetime = lifetime;
+    }
+
+    pub fn lifetime_value(&self, id: &str) -> f64 {
+        self.lifetime.get(id).copied().unwrap_or(0.0)
+    }
+
+    pub fn session_value(&self, id: &str) -> f64 {
+        let current = self.lifetime_value(id);
+        let base = self
+            .baseline
+            .as_ref()
+            .and_then(|baseline| baseline.get(id))
+            .copied()
+            .unwrap_or(current);
+        current - base
+    }
+
+    pub fn has_data(&self) -> bool {
+        self.baseline.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn values(pairs: &[(&'static str, f64)]) -> std::collections::HashMap<&'static str, f64> {
+        pairs.iter().copied().collect()
+    }
+
+    #[test]
+    fn first_update_sets_baseline_so_session_starts_at_zero() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        assert_eq!(tracker.lifetime_value("kills"), 100.0);
+        assert_eq!(tracker.session_value("kills"), 0.0);
+    }
+
+    #[test]
+    fn later_update_computes_delta_from_baseline() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.update(values(&[("kills", 107.0)]));
+        assert_eq!(tracker.lifetime_value("kills"), 107.0);
+        assert_eq!(tracker.session_value("kills"), 7.0);
+    }
+
+    #[test]
+    fn unknown_stat_id_defaults_to_zero() {
+        let tracker = SessionTracker::new();
+        assert_eq!(tracker.lifetime_value("unknown"), 0.0);
+        assert_eq!(tracker.session_value("unknown"), 0.0);
+    }
+
+    #[test]
+    fn has_data_false_until_first_update() {
+        let mut tracker = SessionTracker::new();
+        assert!(!tracker.has_data());
+        tracker.update(values(&[("kills", 1.0)]));
+        assert!(tracker.has_data());
+    }
+}

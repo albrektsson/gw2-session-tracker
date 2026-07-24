@@ -1,0 +1,14 @@
+[package]
+name = "session_tracker"
+version = "0.1.0"
+edition = "2024"
+description = "Session and lifetime GW2 stat tracker"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+session_tracker_core = { path = "../core" }
+session_tracker_net = { path = "../net" }
+nexus = { git = "https://github.com/Zerthox/nexus-rs", features = ["log", "log_filter"] }
+log = "0.4"

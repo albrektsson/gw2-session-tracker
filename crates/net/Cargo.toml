@@ -1,0 +1,9 @@
+[package]
+name = "session_tracker_net"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+session_tracker_core = { path = "../core" }
+ureq = { version = "2", features = ["json"] }
+log = "0.4"
