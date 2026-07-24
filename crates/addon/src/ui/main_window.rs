@@ -12,6 +12,7 @@ use session_tracker_net::state::{AppState, PollStatus};
 pub static SHOW_MAIN: AtomicBool = AtomicBool::new(false);
 
 const ICON_SIZE: f32 = 18.0;
+const STALE_DATA_THRESHOLD_SECS: u64 = 5 * 60;
 
 /// Session KDR from the session kills/deaths deltas, falling back to raw
 /// kills when there have been no deaths this session (mirrors the
@@ -101,11 +102,7 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                     ));
                     return;
                 }
-                PollStatus::Error(err) => {
-                    ui.text_colored([1.0, 0.4, 0.4, 1.0], format!("Last poll failed: {err}"));
-                    ui.text("Showing last known values below.");
-                }
-                PollStatus::Ok => {}
+                PollStatus::Error(_) | PollStatus::Ok => {}
             }
 
             if !state.session.has_data() {
@@ -115,7 +112,12 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
 
             if let Some(last_updated) = state.last_updated {
                 let secs_ago = Instant::now().saturating_duration_since(last_updated).as_secs();
-                ui.text(format!("Last updated {secs_ago}s ago"));
+                let text = format!("Last updated {secs_ago}s ago");
+                if secs_ago >= STALE_DATA_THRESHOLD_SECS {
+                    ui.text_colored([1.0, 0.4, 0.4, 1.0], text);
+                } else {
+                    ui.text(text);
+                }
             }
 
             let selected = resolve_selected_stats(&state.selected_stats);
