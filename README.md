@@ -62,6 +62,11 @@ it in-game.
 
 MIT — see [`LICENSE`](./LICENSE).
 
+Some stat icons (`crates/addon/assets/icons/`) are by
+[Lorc](https://lorcblog.blogspot.com), [Delapouite](https://delapouite.com),
+and Skoll from [game-icons.net](https://game-icons.net), licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+
 ## Contributing
 
 Contributions are welcome — please open a pull request, or open an issue

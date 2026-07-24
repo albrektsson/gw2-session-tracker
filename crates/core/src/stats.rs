@@ -77,26 +77,12 @@ pub struct StatDef {
     pub source: StatSource,
     pub categories: &'static [Category],
     /// A render.guildwars2.com icon URL. Real per-stat icons for
-    /// currencies/items (which have one via the GW2 API); a shared
-    /// WvW/PvP achievement-category icon for stats with no natural icon
-    /// of their own (achievements have no `icon` field at all via the
-    /// API, and computed/account-field stats like Deaths/KDR/Rank have
-    /// no GW2 icon either). `None` only for stats outside both WvW and
-    /// PvP with no natural icon (currently none - kept as a fallback for
-    /// future non-WvW/PvP computed stats).
+    /// currencies/items (which have one via the GW2 API). `None` for
+    /// achievements (no `icon` field at all via the API) and computed/
+    /// account-field stats like Deaths/KDR/Rank - those get a vendored
+    /// icon instead, see `crates/addon/src/ui/icons.rs`.
     pub icon_url: Option<&'static str>,
 }
-
-/// Shared fallback icon for WvW-flavored stats with no icon of their own
-/// (the "World vs World" achievement category icon).
-pub const WVW_FALLBACK_ICON_URL: &str =
-    "https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png";
-
-/// Shared fallback icon for PvP-flavored stats with no icon of their own
-/// (the "PvP Conqueror" achievement category icon, reused by GW2 itself
-/// across several PvP achievement categories).
-pub const PVP_FALLBACK_ICON_URL: &str =
-    "https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png";
 
 /// A PvP rank tier's badge icon, matching what the game shows next to the
 /// player's name (verified against the live `/v2/pvp/ranks` API).
@@ -140,36 +126,36 @@ use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, S
 
 const CORE_STATS: &[StatDef] = &[
     // WvW
-    StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "kdr", display_name: "KDR", source: StatSource::Kdr, categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "wvw_rank", display_name: "WvW Rank", source: StatSource::WvwRank, categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "supply_repair", display_name: "Supply (Repair)", source: StatSource::Achievement(306), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "dolyaks_killed", display_name: "Dolyaks Killed", source: StatSource::Achievement(288), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "dolyaks_escorted", display_name: "Dolyaks Escorted", source: StatSource::Achievement(285), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "camps_captured", display_name: "Camps Captured", source: StatSource::Achievement(291), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "camps_defended", display_name: "Camps Defended", source: StatSource::Achievement(310), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "towers_captured", display_name: "Towers Captured", source: StatSource::Achievement(297), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "towers_defended", display_name: "Towers Defended", source: StatSource::Achievement(322), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "keeps_captured", display_name: "Keeps Captured", source: StatSource::Achievement(300), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "keeps_defended", display_name: "Keeps Defended", source: StatSource::Achievement(316), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "castles_captured", display_name: "Castles Captured", source: StatSource::Achievement(294), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "castles_defended", display_name: "Castles Defended", source: StatSource::Achievement(313), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "objectives_captured", display_name: "Objectives Captured", source: StatSource::Achievement(303), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
-    StatDef { id: "objectives_defended", display_name: "Objectives Defended", source: StatSource::Achievement(319), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/2BBA251A24A2C1A0A305D561580449AF5B55F54F/338457.png") },
+    StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
+    StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },
+    StatDef { id: "kdr", display_name: "KDR", source: StatSource::Kdr, categories: &[Wvw], icon_url: None },
+    StatDef { id: "wvw_rank", display_name: "WvW Rank", source: StatSource::WvwRank, categories: &[Wvw], icon_url: None },
+    StatDef { id: "supply_repair", display_name: "Supply (Repair)", source: StatSource::Achievement(306), categories: &[Wvw], icon_url: None },
+    StatDef { id: "dolyaks_killed", display_name: "Dolyaks Killed", source: StatSource::Achievement(288), categories: &[Wvw], icon_url: None },
+    StatDef { id: "dolyaks_escorted", display_name: "Dolyaks Escorted", source: StatSource::Achievement(285), categories: &[Wvw], icon_url: None },
+    StatDef { id: "camps_captured", display_name: "Camps Captured", source: StatSource::Achievement(291), categories: &[Wvw], icon_url: None },
+    StatDef { id: "camps_defended", display_name: "Camps Defended", source: StatSource::Achievement(310), categories: &[Wvw], icon_url: None },
+    StatDef { id: "towers_captured", display_name: "Towers Captured", source: StatSource::Achievement(297), categories: &[Wvw], icon_url: None },
+    StatDef { id: "towers_defended", display_name: "Towers Defended", source: StatSource::Achievement(322), categories: &[Wvw], icon_url: None },
+    StatDef { id: "keeps_captured", display_name: "Keeps Captured", source: StatSource::Achievement(300), categories: &[Wvw], icon_url: None },
+    StatDef { id: "keeps_defended", display_name: "Keeps Defended", source: StatSource::Achievement(316), categories: &[Wvw], icon_url: None },
+    StatDef { id: "castles_captured", display_name: "Castles Captured", source: StatSource::Achievement(294), categories: &[Wvw], icon_url: None },
+    StatDef { id: "castles_defended", display_name: "Castles Defended", source: StatSource::Achievement(313), categories: &[Wvw], icon_url: None },
+    StatDef { id: "objectives_captured", display_name: "Objectives Captured", source: StatSource::Achievement(303), categories: &[Wvw], icon_url: None },
+    StatDef { id: "objectives_defended", display_name: "Objectives Defended", source: StatSource::Achievement(319), categories: &[Wvw], icon_url: None },
     // PvP
-    StatDef { id: "pvp_kills", display_name: "PvP Kills", source: StatSource::Achievement(239), categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_kdr", display_name: "PvP KDR", source: StatSource::PvpKdr, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_rank", display_name: "PvP Rank", source: StatSource::PvpRank, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_ranking_points", display_name: "PvP Ranking Points", source: StatSource::PvpRankingPoints, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_wins", display_name: "PvP Total Wins", source: StatSource::PvpWins, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_losses", display_name: "PvP Total Losses", source: StatSource::PvpLosses, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_ranked_wins", display_name: "PvP Ranked Wins", source: StatSource::PvpRankedWins, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_ranked_losses", display_name: "PvP Ranked Losses", source: StatSource::PvpRankedLosses, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_unranked_wins", display_name: "PvP Unranked Wins", source: StatSource::PvpUnrankedWins, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_unranked_losses", display_name: "PvP Unranked Losses", source: StatSource::PvpUnrankedLosses, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_custom_wins", display_name: "PvP Custom Wins", source: StatSource::PvpCustomWins, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
-    StatDef { id: "pvp_custom_losses", display_name: "PvP Custom Losses", source: StatSource::PvpCustomLosses, categories: &[Pvp], icon_url: Some("https://render.guildwars2.com/file/7F4E2835316DE912B1493CCF500A9D5CF4A83B4A/42676.png") },
+    StatDef { id: "pvp_kills", display_name: "PvP Kills", source: StatSource::Achievement(239), categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_kdr", display_name: "PvP KDR", source: StatSource::PvpKdr, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_rank", display_name: "PvP Rank", source: StatSource::PvpRank, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_ranking_points", display_name: "PvP Ranking Points", source: StatSource::PvpRankingPoints, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_wins", display_name: "PvP Total Wins", source: StatSource::PvpWins, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_losses", display_name: "PvP Total Losses", source: StatSource::PvpLosses, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_ranked_wins", display_name: "PvP Ranked Wins", source: StatSource::PvpRankedWins, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_ranked_losses", display_name: "PvP Ranked Losses", source: StatSource::PvpRankedLosses, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_unranked_wins", display_name: "PvP Unranked Wins", source: StatSource::PvpUnrankedWins, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_unranked_losses", display_name: "PvP Unranked Losses", source: StatSource::PvpUnrankedLosses, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_custom_wins", display_name: "PvP Custom Wins", source: StatSource::PvpCustomWins, categories: &[Pvp], icon_url: None },
+    StatDef { id: "pvp_custom_losses", display_name: "PvP Custom Losses", source: StatSource::PvpCustomLosses, categories: &[Pvp], icon_url: None },
     // cross-tagged into the activity category that earns them)
     StatDef { id: "gold", display_name: "Gold", source: StatSource::Currency(1), categories: &[Cur, Wvw, Pvp, Fractal, Raid, OpenWorld, Strike], icon_url: Some("https://render.guildwars2.com/file/98457F504BA2FAC8457F532C4B30EDC23929ACF9/619316.png") },
     StatDef { id: "karma", display_name: "Karma", source: StatSource::Currency(2), categories: &[Cur, Wvw, OpenWorld], icon_url: Some("https://render.guildwars2.com/file/94953FA23D3E0D23559624015DFEA4CFAA07F0E5/155026.png") },
@@ -571,21 +557,21 @@ mod tests {
     }
 
     #[test]
-    fn achievement_and_computed_wvw_stats_fall_back_to_wvw_category_icon() {
+    fn achievement_and_computed_wvw_stats_have_no_api_icon() {
         // GW2's /v2/achievements has no icon field at all, and computed/
-        // account-field stats have no natural GW2 icon either - both fall
-        // back to the shared WvW achievement-category icon.
+        // account-field stats have no natural GW2 icon either - these get
+        // a vendored icon in the addon crate instead (icons.rs).
         for id in ["kills", "deaths", "kdr", "wvw_rank"] {
             let stat = STAT_CATALOG.iter().find(|s| s.id == id).unwrap();
-            assert_eq!(stat.icon_url, Some(WVW_FALLBACK_ICON_URL), "{id}");
+            assert_eq!(stat.icon_url, None, "{id}");
         }
     }
 
     #[test]
-    fn achievement_and_computed_pvp_stats_fall_back_to_pvp_category_icon() {
+    fn achievement_and_computed_pvp_stats_have_no_api_icon() {
         for id in ["pvp_kills", "pvp_kdr", "pvp_rank", "pvp_ranking_points"] {
             let stat = STAT_CATALOG.iter().find(|s| s.id == id).unwrap();
-            assert_eq!(stat.icon_url, Some(PVP_FALLBACK_ICON_URL), "{id}");
+            assert_eq!(stat.icon_url, None, "{id}");
         }
     }
 

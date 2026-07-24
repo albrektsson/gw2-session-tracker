@@ -9,6 +9,8 @@ use session_tracker_core::{
 };
 use session_tracker_net::state::{AppState, PollStatus};
 
+use super::icons;
+
 pub static SHOW_MAIN: AtomicBool = AtomicBool::new(false);
 
 const ICON_SIZE: f32 = 18.0;
@@ -48,6 +50,16 @@ fn render_icon(identifier: &str, icon_url: &str, icon_size: f32, ui: &Ui) {
     };
     if let Some(texture) = nexus::texture::get_texture_or_create_from_url(identifier, remote, endpoint) {
         Image::new(texture.id(), [icon_size, icon_size]).build(ui);
+        ui.same_line();
+    }
+}
+
+/// Renders a vendored monochrome icon (see `icons.rs`), tinted to match
+/// the HUD's text color - unlike the full-color GW2 icons rendered by
+/// `render_icon`, which are never tinted.
+fn render_embedded_icon(identifier: &str, bytes: &'static [u8], icon_size: f32, tint: [f32; 4], ui: &Ui) {
+    if let Some(texture) = nexus::texture::get_texture_or_create_from_memory(identifier, bytes) {
+        Image::new(texture.id(), [icon_size, icon_size]).tint_col(tint).build(ui);
         ui.same_line();
     }
 }
@@ -135,11 +147,14 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                 if stat.id == "pvp_rank" {
                     // A real, unique badge exists for this one stat (the
                     // in-game rank insignia) - use it instead of the
-                    // generic PvP category icon fallback in the catalog.
+                    // vendored generic rank icon.
                     let rank = state.session.lifetime_value("pvp_rank") as u32;
                     let tier = pvp_rank_tier(rank);
                     let identifier = format!("SESSION_TRACKER_ICON_pvp_rank_tier_{}", tier.min_rank);
                     render_icon(&identifier, tier.icon_url, icon_size, ui);
+                } else if let Some(bytes) = icons::embedded_icon_bytes(stat.id) {
+                    let identifier = format!("SESSION_TRACKER_ICON_EMBED_{}", stat.id);
+                    render_embedded_icon(&identifier, bytes, icon_size, state.text_color, ui);
                 } else if let Some(icon_url) = stat.icon_url {
                     let identifier = format!("SESSION_TRACKER_ICON_{}", stat.id);
                     render_icon(&identifier, icon_url, icon_size, ui);
