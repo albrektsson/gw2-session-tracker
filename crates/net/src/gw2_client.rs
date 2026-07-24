@@ -7,11 +7,16 @@ use session_tracker_core::stats::{StatSource, STAT_CATALOG};
 /// `Poller::stop()`'s `join()` / addon unload) indefinitely. This is called
 /// at most once per poll cycle (every 60s), so building fresh each time is
 /// cheap enough to not warrant lazy/static caching.
+///
+/// 30s rather than something tighter because `/v2/characters` (serializing
+/// every character's full equipment/inventory) is a known-slow GW2 API
+/// endpoint - routinely taking 5-20s, more under API strain - and GW2's API
+/// has no documented latency SLA to size a tighter bound against.
 fn agent() -> ureq::Agent {
     let config = ureq::Agent::config_builder()
-        .timeout_connect(Some(Duration::from_secs(10)))
-        .timeout_recv_response(Some(Duration::from_secs(10)))
-        .timeout_recv_body(Some(Duration::from_secs(10)))
+        .timeout_connect(Some(Duration::from_secs(30)))
+        .timeout_recv_response(Some(Duration::from_secs(30)))
+        .timeout_recv_body(Some(Duration::from_secs(30)))
         .build();
     ureq::Agent::new_with_config(config)
 }
