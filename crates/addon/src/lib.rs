@@ -24,6 +24,11 @@ static SHARED_STATE: OnceLock<Arc<Mutex<AppState>>> = OnceLock::new();
 static ADDON_DIR: OnceLock<PathBuf> = OnceLock::new();
 static POLLER: OnceLock<Mutex<Poller>> = OnceLock::new();
 
+/// Default keybind for toggling the settings window, used both to
+/// register it and (since Nexus's addon API has no way to read back a
+/// keybind the user has since rebound) as a "default" hint in UI copy.
+pub(crate) const SETTINGS_KEYBIND_DEFAULT: &str = "ALT+SHIFT+E";
+
 nexus::export! {
     name: "Session Tracker",
     signature: -0x57565757,
@@ -45,7 +50,7 @@ fn load() {
         config.api_key.is_some()
     );
 
-    let shared = Arc::new(Mutex::new(AppState::new(config.api_key)));
+    let shared = Arc::new(Mutex::new(AppState::new(config.api_key, config.selected_stats)));
     if SHARED_STATE.set(shared).is_err() {
         panic!("load() called twice without unload()");
     }
@@ -61,8 +66,12 @@ fn load() {
             SHOW_SETTINGS.store(!current, std::sync::atomic::Ordering::Relaxed);
         }
     });
-    register_keybind_with_string("SESSION_TRACKER_TOGGLE_SETTINGS", toggle_settings, "ALT+SHIFT+E")
-        .revert_on_unload();
+    register_keybind_with_string(
+        "SESSION_TRACKER_TOGGLE_SETTINGS",
+        toggle_settings,
+        SETTINGS_KEYBIND_DEFAULT,
+    )
+    .revert_on_unload();
 
     let toggle_main = keybind_handler!(|_id, is_release| {
         if !is_release {

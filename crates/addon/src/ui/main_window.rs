@@ -3,7 +3,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Instant,
 };
-use session_tracker_core::stats::WVW_STATS;
+use session_tracker_core::stats::resolve_selected_stats;
 use session_tracker_net::state::{AppState, PollStatus};
 
 pub static SHOW_MAIN: AtomicBool = AtomicBool::new(false);
@@ -15,7 +15,10 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
         match &state.status {
             PollStatus::AwaitingApiKey => {
                 ui.text("No API key configured yet.");
-                ui.text("Open settings (ALT+SHIFT+E) to add one.");
+                ui.text(format!(
+                    "Open Settings (default keybind {}, rebindable in Nexus) to add one.",
+                    crate::SETTINGS_KEYBIND_DEFAULT
+                ));
                 return;
             }
             PollStatus::Error(err) => {
@@ -35,13 +38,22 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
             ui.text(format!("Last updated {secs_ago}s ago"));
         }
 
+        let selected = resolve_selected_stats(&state.selected_stats);
+        if selected.is_empty() {
+            ui.text(format!(
+                "No stats selected. Open Settings (default keybind {}, rebindable in Nexus) to pick some.",
+                crate::SETTINGS_KEYBIND_DEFAULT
+            ));
+            return;
+        }
+
         if let Some(_table) = ui.begin_table("wvw-stats-table", 3) {
             ui.table_setup_column("Stat");
             ui.table_setup_column("Session");
             ui.table_setup_column("Lifetime");
             ui.table_headers_row();
 
-            for stat in WVW_STATS {
+            for stat in selected {
                 ui.table_next_row();
                 ui.table_next_column();
                 ui.text(stat.display_name);

@@ -8,10 +8,12 @@ use session_tracker_core::stats::{StatSource, WVW_STATS};
 /// at most once per poll cycle (every 60s), so building fresh each time is
 /// cheap enough to not warrant lazy/static caching.
 fn agent() -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .timeout_connect(Duration::from_secs(10))
-        .timeout_read(Duration::from_secs(10))
-        .build()
+    let config = ureq::Agent::config_builder()
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .timeout_recv_response(Some(Duration::from_secs(10)))
+        .timeout_recv_body(Some(Duration::from_secs(10)))
+        .build();
+    ureq::Agent::new_with_config(config)
 }
 
 /// Derives the achievement-ID query list from the `WVW_STATS` catalog
@@ -31,10 +33,11 @@ fn achievement_ids_query() -> String {
 fn authorized_get(url: &str, api_key: &str) -> Result<String, ApiError> {
     agent()
         .get(url)
-        .set("Authorization", &format!("Bearer {api_key}"))
+        .header("Authorization", &format!("Bearer {api_key}"))
         .call()
         .map_err(|e| ApiError(format!("request to {url} failed: {e}")))?
-        .into_string()
+        .body_mut()
+        .read_to_string()
         .map_err(|e| ApiError(format!("failed to read response from {url}: {e}")))
 }
 

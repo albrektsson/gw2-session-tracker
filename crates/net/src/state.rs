@@ -17,15 +17,17 @@ pub enum PollStatus {
 
 pub struct AppState {
     pub api_key: Option<String>,
+    pub selected_stats: Vec<String>,
     pub session: SessionTracker,
     pub status: PollStatus,
     pub last_updated: Option<Instant>,
 }
 
 impl AppState {
-    pub fn new(api_key: Option<String>) -> Self {
+    pub fn new(api_key: Option<String>, selected_stats: Vec<String>) -> Self {
         Self {
             api_key,
+            selected_stats,
             session: SessionTracker::new(),
             status: PollStatus::AwaitingApiKey,
             last_updated: None,
@@ -132,7 +134,7 @@ mod tests {
 
     #[test]
     fn poller_updates_state_and_stops_on_shutdown() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()))));
+        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![])));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -162,7 +164,7 @@ mod tests {
 
     #[test]
     fn poller_without_api_key_never_calls_fetch() {
-        let shared = Arc::new(Mutex::new(AppState::new(None)));
+        let shared = Arc::new(Mutex::new(AppState::new(None, vec![])));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -186,7 +188,7 @@ mod tests {
 
     #[test]
     fn poller_records_fetch_errors_without_crashing() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()))));
+        let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()), vec![])));
         let fetch = |_key: &str| Err("401 Unauthorized".to_string());
 
         let mut poller = Poller::spawn(shared.clone(), Duration::from_millis(20), fetch);
