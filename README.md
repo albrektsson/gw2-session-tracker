@@ -77,23 +77,21 @@ publishes a GitHub release for that tag with the DLL attached and notes
 auto-generated from the commits since the previous tag. There's no manual
 step on GitHub — the tag push is the entire release.
 
-To cut a release:
+All three crates share one version via `[workspace.package]` in the root
+`Cargo.toml` (`version.workspace = true` in each crate), so there's a
+single place to bump. That version is what Nexus displays next to the
+addon's name in-game.
 
-1. Bump `version` in all three crates' `Cargo.toml` (`crates/core`,
-   `crates/net`, `crates/addon`) to the new version, then run
-   `cargo build` once to refresh `Cargo.lock` (CI builds with `--locked`,
-   so a stale lockfile fails the build). The `addon` crate's version is
-   the one that matters — it's what Nexus displays next to the addon's
-   name in-game — but bump all three together for consistency across the
-   workspace.
-2. Commit and push the version bump to `main`.
-3. Tag that commit and push the tag:
-   ```sh
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
-   ```
-4. Watch the `Release` workflow run in the Actions tab; the GitHub release
-   appears once it finishes.
+To cut a release, from a clean working tree on `main`:
+
+```sh
+./scripts/release.sh X.Y.Z
+```
+
+This bumps the workspace version, refreshes `Cargo.lock`, commits, pushes,
+tags, and pushes the tag — the `Release` workflow picks it up from there.
+Watch it run in the Actions tab; the GitHub release appears once it
+finishes.
 
 ## License
 
