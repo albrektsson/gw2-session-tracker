@@ -115,7 +115,7 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                     ));
                     return;
                 }
-                PollStatus::Error(_) | PollStatus::Ok => {}
+                PollStatus::Pending | PollStatus::Error(_) | PollStatus::Ok => {}
             }
 
             if !state.session.has_data() {

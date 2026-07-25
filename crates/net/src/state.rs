@@ -11,6 +11,7 @@ use session_tracker_core::{api::ApiSnapshot, session::SessionTracker, stats, syn
 #[derive(Debug, Clone)]
 pub enum PollStatus {
     AwaitingApiKey,
+    Pending,
     Ok,
     Error(String),
 }
@@ -38,6 +39,11 @@ impl AppState {
         text_color: [f32; 4],
         icon_color: [f32; 4],
     ) -> Self {
+        let status = if api_key.is_some() {
+            PollStatus::Pending
+        } else {
+            PollStatus::AwaitingApiKey
+        };
         Self {
             api_key,
             selected_stats,
@@ -47,7 +53,7 @@ impl AppState {
             text_color,
             icon_color,
             session: SessionTracker::new(),
-            status: PollStatus::AwaitingApiKey,
+            status,
             last_updated: None,
         }
     }
@@ -188,6 +194,18 @@ mod tests {
         let state = shared.lock().unwrap();
         assert!(matches!(state.status, PollStatus::Ok));
         assert_eq!(state.session.lifetime_value("wvw_rank"), 10.0);
+    }
+
+    #[test]
+    fn new_state_with_api_key_starts_pending_not_awaiting_api_key() {
+        let state = AppState::new(Some("test-key".to_string()), vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0]);
+        assert!(matches!(state.status, PollStatus::Pending));
+    }
+
+    #[test]
+    fn new_state_without_api_key_starts_awaiting_api_key() {
+        let state = AppState::new(None, vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0]);
+        assert!(matches!(state.status, PollStatus::AwaitingApiKey));
     }
 
     #[test]

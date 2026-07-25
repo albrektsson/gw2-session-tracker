@@ -29,11 +29,6 @@ thread_local! {
     // render) rather than every frame, otherwise a user clearing the field
     // to type a new key would have it reset out from under them.
     static SEEDED: Cell<bool> = const { Cell::new(false) };
-    // Set right after a successful Save, so we can show "key saved, first
-    // update is coming" instead of the generic "enter a key" prompt while
-    // the poller hasn't run its first cycle with the new key yet (it polls
-    // at most once every 60s, so there's no other feedback for a while).
-    static JUST_SAVED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Builds a `Config` snapshot from the currently-locked `AppState` plus the
@@ -99,7 +94,7 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
                     state.status = PollStatus::Error(format!("failed to save config: {err}"));
                 } else {
                     log::info!("API key saved, will be used on the next poll cycle");
-                    JUST_SAVED.with(|s| s.set(true));
+                    state.status = PollStatus::Pending;
                 }
             }
         }
@@ -108,13 +103,8 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
     {
         let state = lock_recover(shared);
         match &state.status {
-            PollStatus::AwaitingApiKey => {
-                if JUST_SAVED.with(|s| s.get()) {
-                    ui.text("Key saved. First update can take up to 60s...");
-                } else {
-                    ui.text("Enter an API key above to start tracking.");
-                }
-            }
+            PollStatus::AwaitingApiKey => ui.text("Enter an API key above to start tracking."),
+            PollStatus::Pending => ui.text("Key saved. First update can take up to 60s..."),
             PollStatus::Ok => ui.text("API key accepted, stats are updating."),
             PollStatus::Error(err) => ui.text_colored([1.0, 0.4, 0.4, 1.0], format!("Error: {err}")),
         }
