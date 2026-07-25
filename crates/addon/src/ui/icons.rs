@@ -1,37 +1,31 @@
-static CROSSED_SWORDS: &[u8] = include_bytes!("../../assets/icons/crossed-swords.png");
-static SKULL_CROSSED_BONES: &[u8] = include_bytes!("../../assets/icons/skull-crossed-bones.png");
-static WEIGHT_SCALE: &[u8] = include_bytes!("../../assets/icons/weight-scale.png");
-static RANK: &[u8] = include_bytes!("../../assets/icons/rank-3.png");
-static WOODEN_CRATE: &[u8] = include_bytes!("../../assets/icons/wooden-crate.png");
-static BISON: &[u8] = include_bytes!("../../assets/icons/bison.png");
-static CAMPING_TENT: &[u8] = include_bytes!("../../assets/icons/camping-tent.png");
-static WATCHTOWER: &[u8] = include_bytes!("../../assets/icons/watchtower.png");
-static MILITARY_FORT: &[u8] = include_bytes!("../../assets/icons/military-fort.png");
-static CASTLE: &[u8] = include_bytes!("../../assets/icons/castle.png");
-static FLAG_OBJECTIVE: &[u8] = include_bytes!("../../assets/icons/flag-objective.png");
-static PODIUM: &[u8] = include_bytes!("../../assets/icons/podium.png");
-static TROPHY: &[u8] = include_bytes!("../../assets/icons/trophy.png");
-static CROSS_MARK: &[u8] = include_bytes!("../../assets/icons/cross-mark.png");
+static SKULL_SHIELD: &[u8] = include_bytes!("../../assets/icons/skull-shield.png");
+static SKULL_X: &[u8] = include_bytes!("../../assets/icons/skull-x.png");
+static KD_RATIO: &[u8] = include_bytes!("../../assets/icons/kd-ratio.png");
+static WVW_RANK_BADGE: &[u8] = include_bytes!("../../assets/icons/wvw-rank-badge.png");
+static DOLYAK: &[u8] = include_bytes!("../../assets/icons/dolyak.png");
+static DOLYAK_SHIELD: &[u8] = include_bytes!("../../assets/icons/dolyak-shield.png");
+static OBJECTIVE_BANNER: &[u8] = include_bytes!("../../assets/icons/objective-banner.png");
+static OBJECTIVE_BANNER_SHIELD: &[u8] = include_bytes!("../../assets/icons/objective-banner-shield.png");
+static RANKING_MEDAL: &[u8] = include_bytes!("../../assets/icons/ranking-medal.png");
+static VICTORY_BADGE: &[u8] = include_bytes!("../../assets/icons/victory-badge.png");
+static DEFEAT_BADGE: &[u8] = include_bytes!("../../assets/icons/defeat-badge.png");
 
-/// Maps a stat id with no natural GW2 icon to a vendored game-icons.org
-/// silhouette (see README.md for licensing/attribution). `None` for any
-/// stat that has, or falls back to, a real API icon instead.
+/// Maps a stat id with no natural GW2 icon to a vendored icon adapted from
+/// BlishHud-SessionTracker (see README.md for licensing/attribution). `None`
+/// for any stat that has, or falls back to, a real API icon instead.
 pub fn embedded_icon_bytes(stat_id: &str) -> Option<&'static [u8]> {
     match stat_id {
-        "kills" | "pvp_kills" => Some(CROSSED_SWORDS),
-        "deaths" => Some(SKULL_CROSSED_BONES),
-        "kdr" | "pvp_kdr" => Some(WEIGHT_SCALE),
-        "wvw_rank" | "pvp_rank" => Some(RANK),
-        "supply_repair" => Some(WOODEN_CRATE),
-        "dolyaks_killed" | "dolyaks_escorted" => Some(BISON),
-        "camps_captured" | "camps_defended" => Some(CAMPING_TENT),
-        "towers_captured" | "towers_defended" => Some(WATCHTOWER),
-        "keeps_captured" | "keeps_defended" => Some(MILITARY_FORT),
-        "castles_captured" | "castles_defended" => Some(CASTLE),
-        "objectives_captured" | "objectives_defended" => Some(FLAG_OBJECTIVE),
-        "pvp_ranking_points" => Some(PODIUM),
-        "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(TROPHY),
-        "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(CROSS_MARK),
+        "kills" | "pvp_kills" => Some(SKULL_SHIELD),
+        "deaths" => Some(SKULL_X),
+        "kdr" | "pvp_kdr" => Some(KD_RATIO),
+        "wvw_rank" | "pvp_rank" => Some(WVW_RANK_BADGE),
+        "dolyaks_killed" => Some(DOLYAK),
+        "dolyaks_escorted" => Some(DOLYAK_SHIELD),
+        "objectives_captured" => Some(OBJECTIVE_BANNER),
+        "objectives_defended" => Some(OBJECTIVE_BANNER_SHIELD),
+        "pvp_ranking_points" => Some(RANKING_MEDAL),
+        "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(VICTORY_BADGE),
+        "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(DEFEAT_BADGE),
         _ => None,
     }
 }
