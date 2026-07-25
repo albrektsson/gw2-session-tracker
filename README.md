@@ -68,6 +68,33 @@ needed to avoid runtime MinGW DLL dependencies — no extra flags needed.
 Copy the built DLL into your GW2 install's Nexus `addons` folder to load
 it in-game.
 
+## Releasing
+
+Releases are tag-triggered: pushing a `v*` tag runs
+[`release.yml`](./.github/workflows/release.yml), which builds
+`session_tracker.dll` in release mode for `x86_64-pc-windows-msvc` and
+publishes a GitHub release for that tag with the DLL attached and notes
+auto-generated from the commits since the previous tag. There's no manual
+step on GitHub — the tag push is the entire release.
+
+To cut a release:
+
+1. Bump `version` in all three crates' `Cargo.toml` (`crates/core`,
+   `crates/net`, `crates/addon`) to the new version, then run
+   `cargo build` once to refresh `Cargo.lock` (CI builds with `--locked`,
+   so a stale lockfile fails the build). The `addon` crate's version is
+   the one that matters — it's what Nexus displays next to the addon's
+   name in-game — but bump all three together for consistency across the
+   workspace.
+2. Commit and push the version bump to `main`.
+3. Tag that commit and push the tag:
+   ```sh
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+4. Watch the `Release` workflow run in the Actions tab; the GitHub release
+   appears once it finishes.
+
 ## License
 
 MIT — see [`LICENSE`](./LICENSE).
