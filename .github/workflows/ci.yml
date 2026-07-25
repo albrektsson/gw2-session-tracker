@@ -23,9 +23,15 @@ jobs:
     env:
       GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
     steps:
-      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            api.guildwars2.com:443
+            github.com:443
+            index.crates.io:443
+            static.rust-lang.org:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
         with:
           persist-credentials: false
@@ -57,8 +63,3 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # ratchet:Swatinem/rust-cache@v2
       - name: cargo build (release)
         run: cargo build --locked --target x86_64-pc-windows-msvc --release -p session_tracker
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
-        with:
-          name: session_tracker.dll
-          path: target/x86_64-pc-windows-msvc/release/session_tracker.dll
-          if-no-files-found: error
