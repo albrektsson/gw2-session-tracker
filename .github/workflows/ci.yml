@@ -20,6 +20,8 @@ jobs:
   test:
     name: Test (native)
     runs-on: ubuntu-latest
+    env:
+      GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
     steps:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
@@ -34,9 +36,7 @@ jobs:
       - name: cargo test
         run: cargo test --locked -p session_tracker_core -p session_tracker_net
       - name: cargo test (live GW2 API)
-        if: ${{ secrets.GW2_API_KEY != '' }}
-        env:
-          GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
+        if: ${{ env.GW2_API_KEY != '' }}
         run: cargo test --locked -p session_tracker_net --test live_api -- --ignored
       - name: cargo clippy
         run: cargo clippy --locked -p session_tracker_core -p session_tracker_net --all-targets -- -D warnings
