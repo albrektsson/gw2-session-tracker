@@ -25,6 +25,7 @@ jobs:
           persist-credentials: false
       - uses: step-security/dtolnay-rust-toolchain@8dd607977d06adf4ed49b190381e74c17a9dd25f # ratchet:step-security/dtolnay-rust-toolchain@v1
         with:
+          toolchain: stable
           targets: x86_64-pc-windows-msvc
       - uses: step-security/rust-cache@851174d9a2fdc03e0896e02844dcc61d81dd7851 # ratchet:step-security/rust-cache@v2
       - name: cargo build (release)
