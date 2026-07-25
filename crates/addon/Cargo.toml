@@ -3,6 +3,7 @@ name = "session_tracker"
 version = "0.1.0"
 edition = "2024"
 description = "Session and lifetime GW2 stat tracker"
+authors = ["SpiroTris.3748"]
 
 [lib]
 crate-type = ["cdylib"]
