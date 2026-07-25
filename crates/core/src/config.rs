@@ -14,6 +14,8 @@ pub struct Config {
     pub bold_text: bool,
     #[serde(default = "default_text_color")]
     pub text_color: [f32; 4],
+    #[serde(default = "default_icon_color")]
+    pub icon_color: [f32; 4],
     #[serde(default)]
     pub show_settings: bool,
     #[serde(default)]
@@ -29,6 +31,7 @@ impl Default for Config {
             text_scale: default_text_scale(),
             bold_text: false,
             text_color: default_text_color(),
+            icon_color: default_icon_color(),
             show_settings: false,
             show_main: false,
         }
@@ -52,6 +55,10 @@ fn default_text_scale() -> f32 {
 
 fn default_text_color() -> [f32; 4] {
     [1.0, 0.85, 0.3, 1.0]
+}
+
+fn default_icon_color() -> [f32; 4] {
+    default_text_color()
 }
 
 const CONFIG_FILE_NAME: &str = "session_tracker_config.json";
@@ -93,6 +100,7 @@ mod tests {
             text_scale: 1.5,
             bold_text: true,
             text_color: [0.1, 0.2, 0.3, 1.0],
+            icon_color: [0.4, 0.5, 0.6, 1.0],
             show_settings: true,
             show_main: true,
         };
@@ -120,6 +128,7 @@ mod tests {
         assert_eq!(config.text_scale, default_text_scale());
         assert!(!config.bold_text);
         assert_eq!(config.text_color, default_text_color());
+        assert_eq!(config.icon_color, default_icon_color());
         assert!(!config.show_settings);
         assert!(!config.show_main);
     }

@@ -47,6 +47,7 @@ pub(crate) fn config_from_state(state: &AppState) -> Config {
         text_scale: state.text_scale,
         bold_text: state.bold_text,
         text_color: state.text_color,
+        icon_color: state.icon_color,
         show_settings: SHOW_SETTINGS.load(Ordering::Relaxed),
         show_main: SHOW_MAIN.load(Ordering::Relaxed),
     }
@@ -145,6 +146,12 @@ fn render_general_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) 
     let mut text_color = state.text_color;
     if ColorEdit::new("Text color", &mut text_color).build(ui) {
         state.text_color = text_color;
+        persist_and_report(&mut state, addon_dir);
+    }
+
+    let mut icon_color = state.icon_color;
+    if ColorEdit::new("Icon color", &mut icon_color).build(ui) {
+        state.icon_color = icon_color;
         persist_and_report(&mut state, addon_dir);
     }
 

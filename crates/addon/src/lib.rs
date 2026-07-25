@@ -77,6 +77,7 @@ fn load() {
         config.text_scale,
         config.bold_text,
         config.text_color,
+        config.icon_color,
     )));
 
     register_render(RenderType::Render, render!(render_frame)).revert_on_unload();

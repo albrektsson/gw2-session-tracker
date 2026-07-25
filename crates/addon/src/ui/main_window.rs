@@ -56,7 +56,7 @@ fn render_icon(identifier: &str, icon_url: &str, icon_size: f32, ui: &Ui) {
 }
 
 /// Renders a vendored monochrome icon (see `icons.rs`), tinted to match
-/// the HUD's text color - unlike the full-color GW2 icons rendered by
+/// the configured icon color - unlike the full-color GW2 icons rendered by
 /// `render_icon`, which are never tinted.
 fn render_embedded_icon(identifier: &str, bytes: &'static [u8], icon_size: f32, tint: [f32; 4], ui: &Ui) {
     if let Some(texture) = nexus::texture::get_texture_or_create_from_memory(identifier, bytes) {
@@ -155,7 +155,7 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                     render_icon(&identifier, tier.icon_url, icon_size, ui);
                 } else if let Some(bytes) = icons::embedded_icon_bytes(stat.id) {
                     let identifier = format!("SESSION_TRACKER_ICON_EMBED_{}", stat.id);
-                    render_embedded_icon(&identifier, bytes, icon_size, state.text_color, ui);
+                    render_embedded_icon(&identifier, bytes, icon_size, state.icon_color, ui);
                 } else if let Some(icon_url) = stat.icon_url {
                     let identifier = format!("SESSION_TRACKER_ICON_{}", stat.id);
                     render_icon(&identifier, icon_url, icon_size, ui);
