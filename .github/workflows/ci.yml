@@ -21,6 +21,9 @@ jobs:
     name: Test (native)
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
         with:
           persist-credentials: false
@@ -30,6 +33,11 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # ratchet:Swatinem/rust-cache@v2
       - name: cargo test
         run: cargo test --locked -p session_tracker_core -p session_tracker_net
+      - name: cargo test (live GW2 API)
+        if: ${{ secrets.GW2_API_KEY != '' }}
+        env:
+          GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
+        run: cargo test --locked -p session_tracker_net --test live_api -- --ignored
       - name: cargo clippy
         run: cargo clippy --locked -p session_tracker_core -p session_tracker_net --all-targets -- -D warnings
 
@@ -37,6 +45,9 @@ jobs:
     name: Build addon (x86_64-pc-windows-msvc)
     runs-on: windows-latest
     steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
         with:
           persist-credentials: false
