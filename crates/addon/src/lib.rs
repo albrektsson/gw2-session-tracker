@@ -14,7 +14,10 @@ use std::{
 };
 use ui::main_window::{render_main_window, SHOW_MAIN};
 use ui::settings_window::{render_settings_window, SHOW_SETTINGS};
-use session_tracker_core::{config::load_config, sync::lock_recover};
+use session_tracker_core::{
+    config::{load_config, save_config},
+    sync::lock_recover,
+};
 use session_tracker_net::{
     gw2_client::fetch_snapshot,
     state::{AppState, Poller},
@@ -64,6 +67,9 @@ fn load() {
         config.api_key.is_some()
     );
 
+    SHOW_SETTINGS.store(config.show_settings, std::sync::atomic::Ordering::Relaxed);
+    SHOW_MAIN.store(config.show_main, std::sync::atomic::Ordering::Relaxed);
+
     let shared = Arc::new(Mutex::new(AppState::new(
         config.api_key,
         config.selected_stats,
@@ -79,6 +85,7 @@ fn load() {
         if !is_release {
             let current = SHOW_SETTINGS.load(std::sync::atomic::Ordering::Relaxed);
             SHOW_SETTINGS.store(!current, std::sync::atomic::Ordering::Relaxed);
+            persist_window_visibility();
         }
     });
     register_keybind_with_string(
@@ -92,6 +99,7 @@ fn load() {
         if !is_release {
             let current = SHOW_MAIN.load(std::sync::atomic::Ordering::Relaxed);
             SHOW_MAIN.store(!current, std::sync::atomic::Ordering::Relaxed);
+            persist_window_visibility();
         }
     });
     register_keybind_with_string("SESSION_TRACKER_TOGGLE_MAIN", toggle_main, "ALT+SHIFT+W")
@@ -112,6 +120,19 @@ fn load() {
         addon_dir,
         poller,
     });
+}
+
+fn persist_window_visibility() {
+    let guard = lock_recover(&ADDON);
+    let Some(addon) = guard.as_ref() else {
+        return;
+    };
+    let state = lock_recover(&addon.shared);
+    let config = ui::settings_window::config_from_state(&state);
+    drop(state);
+    if let Err(err) = save_config(&addon.addon_dir, &config) {
+        log::warn!("failed to save session tracker config: {err}");
+    }
 }
 
 fn unload() {

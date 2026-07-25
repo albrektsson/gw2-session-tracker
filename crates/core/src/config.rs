@@ -14,6 +14,10 @@ pub struct Config {
     pub bold_text: bool,
     #[serde(default = "default_text_color")]
     pub text_color: [f32; 4],
+    #[serde(default)]
+    pub show_settings: bool,
+    #[serde(default)]
+    pub show_main: bool,
 }
 
 impl Default for Config {
@@ -25,6 +29,8 @@ impl Default for Config {
             text_scale: default_text_scale(),
             bold_text: false,
             text_color: default_text_color(),
+            show_settings: false,
+            show_main: false,
         }
     }
 }
@@ -87,6 +93,8 @@ mod tests {
             text_scale: 1.5,
             bold_text: true,
             text_color: [0.1, 0.2, 0.3, 1.0],
+            show_settings: true,
+            show_main: true,
         };
         save_config(dir.path(), &config).unwrap();
         let loaded = load_config(dir.path());
@@ -112,6 +120,8 @@ mod tests {
         assert_eq!(config.text_scale, default_text_scale());
         assert!(!config.bold_text);
         assert_eq!(config.text_color, default_text_color());
+        assert!(!config.show_settings);
+        assert!(!config.show_main);
     }
 
     #[test]

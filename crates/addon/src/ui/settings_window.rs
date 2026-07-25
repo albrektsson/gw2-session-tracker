@@ -2,7 +2,10 @@ use nexus::imgui::{ColorEdit, Slider, Ui};
 use std::{
     cell::Cell,
     path::Path,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 use session_tracker_core::{
     config::{save_config, Config},
@@ -11,6 +14,7 @@ use session_tracker_core::{
 use session_tracker_net::state::{AppState, PollStatus};
 
 use super::arrange_stats_tab::render_arrange_stats_tab;
+use super::main_window::SHOW_MAIN;
 use super::select_stats_tab::render_select_stats_tab;
 
 pub static SHOW_SETTINGS: AtomicBool = AtomicBool::new(false);
@@ -32,9 +36,9 @@ thread_local! {
     static JUST_SAVED: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Builds a `Config` snapshot from the currently-locked `AppState`, so
-/// every save site (API key, stat picker, arrange) persists the full
-/// config instead of clobbering fields it doesn't own.
+/// Builds a `Config` snapshot from the currently-locked `AppState` plus the
+/// window-visibility atomics, so every save site persists the full config
+/// instead of clobbering fields it doesn't own.
 pub(crate) fn config_from_state(state: &AppState) -> Config {
     Config {
         api_key: state.api_key.clone(),
@@ -43,6 +47,8 @@ pub(crate) fn config_from_state(state: &AppState) -> Config {
         text_scale: state.text_scale,
         bold_text: state.bold_text,
         text_color: state.text_color,
+        show_settings: SHOW_SETTINGS.load(Ordering::Relaxed),
+        show_main: SHOW_MAIN.load(Ordering::Relaxed),
     }
 }
 
