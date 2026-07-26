@@ -157,7 +157,7 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                     let identifier = format!("SESSION_TRACKER_ICON_EMBED_{}", stat.id);
                     render_embedded_icon(&identifier, bytes, icon_size, state.icon_color, ui);
                 } else if let Some(icon_url) = stat.icon_url {
-                    let identifier = format!("SESSION_TRACKER_ICON_{}", stat.id);
+                    let identifier = format!("SESSION_TRACKER_ICON_{icon_url}");
                     render_icon(&identifier, icon_url, icon_size, ui);
                 }
 
