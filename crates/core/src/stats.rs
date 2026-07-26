@@ -20,6 +20,7 @@ pub enum StatSource {
     PvpCustomLosses,
     PvpKdr,
     Item(u32),
+    SessionTimer,
 }
 
 /// A stat's browsing category in the Select Stats picker. Purely a UI
@@ -125,6 +126,8 @@ pub fn pvp_rank_icon_url(rank: u32) -> &'static str {
 use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw};
 
 const CORE_STATS: &[StatDef] = &[
+    // General
+    StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[Misc], icon_url: None },
     // WvW
     StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
     StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },
@@ -294,6 +297,9 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
             | StatSource::PvpKdr
             | StatSource::PvpCustomWins
             | StatSource::PvpCustomLosses => continue,
+            // client-computed at render time from `SessionTracker::elapsed`,
+            // not from any snapshot field
+            StatSource::SessionTimer => continue,
         };
         values.insert(stat.id, value);
     }
@@ -469,9 +475,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_eight_stats() {
-        // 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
-        assert_eq!(STAT_CATALOG.len(), 808);
+    fn catalog_has_eight_hundred_nine_stats() {
+        // 1 session timer + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
+        assert_eq!(STAT_CATALOG.len(), 809);
     }
 
     #[test]

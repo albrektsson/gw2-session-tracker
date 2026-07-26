@@ -31,6 +31,17 @@ pub fn format_coin(total_copper: f64) -> String {
     format!("{sign}{}g {silver}s {copper}c", format_thousands(gold as f64))
 }
 
+/// Formats a duration in seconds as `HH:MM:SS`, e.g. `3725.0` -> `"01:02:05"`.
+/// Negative input clamps to zero; hours grow past two digits for long
+/// sessions rather than wrapping.
+pub fn format_duration(seconds: f64) -> String {
+    let total_secs = seconds.max(0.0).round() as u64;
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let secs = total_secs % 60;
+    format!("{hours:02}:{minutes:02}:{secs:02}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,5 +106,40 @@ mod tests {
     fn format_coin_negative_value() {
         // a session that net-spent more than it earned
         assert_eq!(format_coin(-233.0), "-0g 2s 33c");
+    }
+
+    #[test]
+    fn format_duration_zero() {
+        assert_eq!(format_duration(0.0), "00:00:00");
+    }
+
+    #[test]
+    fn format_duration_sub_hour() {
+        assert_eq!(format_duration(125.0), "00:02:05");
+    }
+
+    #[test]
+    fn format_duration_exact_hour() {
+        assert_eq!(format_duration(3600.0), "01:00:00");
+    }
+
+    #[test]
+    fn format_duration_multi_hour() {
+        assert_eq!(format_duration(3725.0), "01:02:05");
+    }
+
+    #[test]
+    fn format_duration_grows_past_ninety_nine_hours() {
+        assert_eq!(format_duration(100.0 * 3600.0), "100:00:00");
+    }
+
+    #[test]
+    fn format_duration_rounds_before_formatting() {
+        assert_eq!(format_duration(59.6), "00:01:00");
+    }
+
+    #[test]
+    fn format_duration_clamps_negative_to_zero() {
+        assert_eq!(format_duration(-5.0), "00:00:00");
     }
 }

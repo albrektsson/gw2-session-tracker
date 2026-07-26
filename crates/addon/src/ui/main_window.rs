@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 use session_tracker_core::{
-    format::{format_coin, format_thousands},
+    format::{format_coin, format_duration, format_thousands},
     stats::{pvp_rank_tier, resolve_selected_stats},
     sync::lock_recover,
 };
@@ -159,6 +159,15 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                 } else if let Some(icon_url) = stat.icon_url {
                     let identifier = format!("SESSION_TRACKER_ICON_{}", stat.id);
                     render_icon(&identifier, icon_url, icon_size, ui);
+                }
+
+                if stat.id == "session_timer" {
+                    let text = format_duration(state.session.elapsed().as_secs_f64());
+                    draw_text(ui, state.text_color, &text, state.bold_text);
+                    if ui.is_item_hovered() {
+                        ui.tooltip_text(stat.display_name);
+                    }
+                    continue;
                 }
 
                 // KDR-shaped stats are ratios, not counts: diffing lifetime

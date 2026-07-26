@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Default)]
 pub struct SessionTracker {
     baseline: Option<HashMap<&'static str, f64>>,
     lifetime: HashMap<&'static str, f64>,
+    started_at: Option<Instant>,
 }
 
 impl SessionTracker {
@@ -21,6 +23,7 @@ impl SessionTracker {
         }
         if self.baseline.is_none() {
             self.baseline = Some(lifetime.clone());
+            self.started_at = Some(Instant::now());
         }
         self.lifetime = lifetime;
     }
@@ -44,12 +47,19 @@ impl SessionTracker {
         self.baseline.is_some()
     }
 
+    /// Elapsed time since the session started (the first successful poll,
+    /// or the last `reset()`). Zero if the session hasn't started yet.
+    pub fn elapsed(&self) -> Duration {
+        self.started_at.map(|t| t.elapsed()).unwrap_or_default()
+    }
+
     /// Re-baselines to the current lifetime values, so every stat's
     /// session value restarts at zero immediately (rather than waiting
     /// for the next poll to naturally re-baseline, which only happens
     /// when there's no baseline at all yet).
     pub fn reset(&mut self) {
         self.baseline = Some(self.lifetime.clone());
+        self.started_at = Some(Instant::now());
     }
 }
 
@@ -141,5 +151,27 @@ mod tests {
         tracker.update(values(&[("kills", 1.0)]));
         tracker.reset();
         assert!(tracker.has_data());
+    }
+
+    #[test]
+    fn elapsed_is_zero_before_first_update() {
+        let tracker = SessionTracker::new();
+        assert_eq!(tracker.elapsed(), std::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn elapsed_is_near_zero_right_after_first_update() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 1.0)]));
+        assert!(tracker.elapsed() < std::time::Duration::from_secs(1));
+    }
+
+    #[test]
+    fn reset_restarts_elapsed_near_zero() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 1.0)]));
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        tracker.reset();
+        assert!(tracker.elapsed() < std::time::Duration::from_secs(1));
     }
 }
