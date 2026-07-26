@@ -82,6 +82,20 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
         let needle = query.to_lowercase();
         let mut state = lock_recover(shared);
 
+        // Pinned above every supercategory instead of filed under one -
+        // it's a fixed reference point, not really a "stat" grouped by
+        // activity like everything else in the catalog.
+        if let Some(timer) = STAT_CATALOG.iter().find(|s| s.id == "session_timer")
+            && (needle.is_empty() || timer.display_name.to_lowercase().contains(&needle))
+        {
+            let mut checked = state.selected_stats.iter().any(|id| id == timer.id);
+            if ui.checkbox(timer.display_name, &mut checked) {
+                toggle_stat(&mut state.selected_stats, timer.id);
+                persist(&state, addon_dir);
+            }
+            ui.separator();
+        }
+
         for (supercategory_name, subcategories) in SUPERCATEGORIES {
             if !ui.collapsing_header(*supercategory_name, TreeNodeFlags::DEFAULT_OPEN) {
                 continue;
