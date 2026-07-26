@@ -408,6 +408,23 @@ pub fn move_stat_down(selected: &mut [String], id: &str) {
     }
 }
 
+/// Moves `id` to sit immediately before `before_id` in `selected`. No-op
+/// if they're equal, or either isn't present.
+pub fn move_stat_to(selected: &mut Vec<String>, id: &str, before_id: &str) {
+    if id == before_id {
+        return;
+    }
+    let Some(from) = selected.iter().position(|s| s == id) else {
+        return;
+    };
+    if !selected.iter().any(|s| s == before_id) {
+        return;
+    }
+    let item = selected.remove(from);
+    let insert_at = selected.iter().position(|s| s == before_id).unwrap();
+    selected.insert(insert_at, item);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -817,6 +834,36 @@ mod tests {
     fn move_stat_down_is_noop_for_absent_id() {
         let mut selected = vec!["kills".to_string(), "deaths".to_string()];
         move_stat_down(&mut selected, "kdr");
+        assert_eq!(selected, vec!["kills", "deaths"]);
+    }
+
+    #[test]
+    fn move_stat_to_moves_forward() {
+        let mut selected = vec!["kills".to_string(), "deaths".to_string(), "kdr".to_string()];
+        move_stat_to(&mut selected, "kills", "kdr");
+        assert_eq!(selected, vec!["deaths", "kills", "kdr"]);
+    }
+
+    #[test]
+    fn move_stat_to_moves_backward() {
+        let mut selected = vec!["kills".to_string(), "deaths".to_string(), "kdr".to_string()];
+        move_stat_to(&mut selected, "kdr", "deaths");
+        assert_eq!(selected, vec!["kills", "kdr", "deaths"]);
+    }
+
+    #[test]
+    fn move_stat_to_is_noop_for_same_id() {
+        let mut selected = vec!["kills".to_string(), "deaths".to_string()];
+        move_stat_to(&mut selected, "kills", "kills");
+        assert_eq!(selected, vec!["kills", "deaths"]);
+    }
+
+    #[test]
+    fn move_stat_to_is_noop_for_absent_ids() {
+        let mut selected = vec!["kills".to_string(), "deaths".to_string()];
+        move_stat_to(&mut selected, "kdr", "deaths");
+        assert_eq!(selected, vec!["kills", "deaths"]);
+        move_stat_to(&mut selected, "kills", "kdr");
         assert_eq!(selected, vec!["kills", "deaths"]);
     }
 }
