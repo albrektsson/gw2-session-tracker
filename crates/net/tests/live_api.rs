@@ -12,5 +12,6 @@ fn fetch_snapshot_parses_the_live_api_response() {
         return;
     };
 
-    fetch_snapshot(&api_key).expect("live GW2 API response failed to parse");
+    let not_cancelled = std::sync::atomic::AtomicBool::new(false);
+    fetch_snapshot(&api_key, &not_cancelled).expect("live GW2 API response failed to parse");
 }

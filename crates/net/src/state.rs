@@ -67,7 +67,7 @@ pub struct Poller {
 impl Poller {
     pub fn spawn<F>(shared: Arc<Mutex<AppState>>, interval: Duration, fetch: F) -> Self
     where
-        F: Fn(&str) -> Result<ApiSnapshot, String> + Send + 'static,
+        F: Fn(&str, &AtomicBool) -> Result<ApiSnapshot, String> + Send + 'static,
     {
         let shutdown = Arc::new(AtomicBool::new(false));
         let thread_shutdown = shutdown.clone();
@@ -100,7 +100,7 @@ fn run_poller<F>(
     interval: Duration,
     fetch: F,
 ) where
-    F: Fn(&str) -> Result<ApiSnapshot, String>,
+    F: Fn(&str, &AtomicBool) -> Result<ApiSnapshot, String>,
 {
     let poll_slice = Duration::from_millis(200);
 
@@ -112,7 +112,14 @@ fn run_poller<F>(
         let api_key = lock_recover(&shared).api_key.clone();
         if let Some(api_key) = api_key {
             log::info!("polling GW2 API for WvW stats");
-            let result = fetch(&api_key);
+            let result = fetch(&api_key, &shutdown);
+            if shutdown.load(Ordering::SeqCst) {
+                // Shutting down mid-poll: `result` may just be the
+                // cancellation error `fetch` bailed out with, or a real
+                // one raced against it - either way there's no point
+                // logging/storing it, the addon is unloading.
+                return;
+            }
             let mut state = lock_recover(&shared);
             match result {
                 Ok(snapshot) => {
@@ -162,7 +169,7 @@ mod tests {
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
-        let fetch = move |_key: &str| {
+        let fetch = move |_key: &str, _shutdown: &AtomicBool| {
             fetch_call_count.fetch_add(1, Ordering::SeqCst);
             Ok(ApiSnapshot {
                 wvw_rank: 10,
@@ -214,7 +221,7 @@ mod tests {
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
-        let fetch = move |_key: &str| {
+        let fetch = move |_key: &str, _shutdown: &AtomicBool| {
             fetch_call_count.fetch_add(1, Ordering::SeqCst);
             Ok(ApiSnapshot {
                 wvw_rank: 0,
@@ -245,7 +252,7 @@ mod tests {
     #[test]
     fn poller_records_fetch_errors_without_crashing() {
         let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()), vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
-        let fetch = |_key: &str| Err("401 Unauthorized".to_string());
+        let fetch = |_key: &str, _shutdown: &AtomicBool| Err("401 Unauthorized".to_string());
 
         let mut poller = Poller::spawn(shared.clone(), Duration::from_millis(20), fetch);
         thread::sleep(Duration::from_millis(100));
@@ -253,5 +260,39 @@ mod tests {
 
         let state = shared.lock().unwrap();
         assert!(matches!(&state.status, PollStatus::Error(msg) if msg.contains("401")));
+    }
+
+    #[test]
+    fn stop_returns_promptly_when_fetch_cooperates_with_shutdown() {
+        // Simulates a `fetch_snapshot`-shaped call that only checks for
+        // cancellation between several sequential steps, rather than
+        // instantly - `stop()` must not need to wait for the whole
+        // simulated call to finish, just for it to notice `shutdown`.
+        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
+        let started = Arc::new(AtomicUsize::new(0));
+        let fetch_started = started.clone();
+
+        let fetch = move |_key: &str, shutdown: &AtomicBool| {
+            fetch_started.fetch_add(1, Ordering::SeqCst);
+            for _ in 0..8 {
+                if shutdown.load(Ordering::SeqCst) {
+                    return Err("cancelled".to_string());
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err("never cancelled".to_string())
+        };
+
+        let mut poller = Poller::spawn(shared.clone(), Duration::from_secs(60), fetch);
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while started.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(started.load(Ordering::SeqCst), 1);
+
+        let stop_started = Instant::now();
+        poller.stop();
+        assert!(stop_started.elapsed() < Duration::from_millis(500));
     }
 }

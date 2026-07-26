@@ -58,8 +58,14 @@ nexus::export! {
 fn load() {
     log::info!("Session Tracker addon loading");
 
-    let addon_dir = get_addon_dir("session_tracker").expect("invalid addon dir");
-    std::fs::create_dir_all(&addon_dir).expect("failed to create addon dir");
+    let Some(addon_dir) = get_addon_dir("session_tracker") else {
+        log::error!("failed to resolve addon directory; Session Tracker will not load");
+        return;
+    };
+    if let Err(err) = std::fs::create_dir_all(&addon_dir) {
+        log::error!("failed to create addon dir {}: {err}; Session Tracker will not load", addon_dir.display());
+        return;
+    }
     let config = load_config(&addon_dir);
     log::info!(
         "loaded config from {}, api key present: {}",
@@ -109,7 +115,7 @@ fn load() {
     let poller = Poller::spawn(
         shared.clone(),
         Duration::from_secs(60),
-        |api_key| fetch_snapshot(api_key).map_err(|err| err.to_string()),
+        |api_key, shutdown| fetch_snapshot(api_key, shutdown).map_err(|err| err.to_string()),
     );
 
     let mut addon = lock_recover(&ADDON);
@@ -146,9 +152,18 @@ fn unload() {
 /// a plain, non-capturing `fn(&Ui)` (it stores the callback in a `const`),
 /// so shared state is read from the module-level `ADDON` static rather than
 /// captured in a closure.
+///
+/// `ADDON` can legitimately be `None` here: `register_render` runs before
+/// `ADDON` is populated in `load()`, and `revert_on_unload()` deregisters
+/// the render callback with Nexus asynchronously, so a render tick can still
+/// land after `unload()` has already cleared `ADDON` via `.take()`. Both are
+/// expected transient states, not a bug - skip the frame instead of
+/// panicking.
 fn render_frame(ui: &Ui) {
     let guard = lock_recover(&ADDON);
-    let addon = guard.as_ref().expect("load() sets ADDON before render is registered");
+    let Some(addon) = guard.as_ref() else {
+        return;
+    };
 
     if SHOW_SETTINGS.load(std::sync::atomic::Ordering::Relaxed) {
         render_settings_window(ui, &addon.shared, &addon.addon_dir);

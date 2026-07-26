@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use session_tracker_core::api::{self, ApiError, ApiSnapshot};
 use session_tracker_core::stats::{StatSource, STAT_CATALOG};
@@ -69,13 +70,31 @@ fn authorized_get_optional(url: &str, api_key: &str) -> Result<Option<String>, A
     }
 }
 
+/// Bails out of `fetch_snapshot` early once `cancelled` is set, instead of
+/// starting another of its 8 sequential HTTP requests. Without this, a
+/// shutdown requested mid-poll (e.g. the addon being unloaded right after
+/// its first poll starts) would have to wait for every remaining request to
+/// either finish or hit its own timeout before `Poller::stop()`'s `join()`
+/// returns - stacking up to 8 timeouts long enough to freeze the game.
+/// Checking between requests bounds that wait to whichever single request
+/// happens to already be in flight.
+fn check_cancelled(cancelled: &AtomicBool) -> Result<(), ApiError> {
+    if cancelled.load(Ordering::SeqCst) {
+        Err(ApiError("poll cancelled: addon unloading".to_string()))
+    } else {
+        Ok(())
+    }
+}
+
 /// Fetches account, achievements, character, wallet, PvP, and item
 /// (bank/shared inventory/materials) data from the official GW2 API and
 /// combines them into a single [`ApiSnapshot`]. Wallet/PvP/item data is
 /// optional - a key without the `wallet`/`pvp`/`inventories` scopes still
-/// succeeds, just with those stats reading as zero.
-pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
+/// succeeds, just with those stats reading as zero. `cancelled` is checked
+/// before every request, see `check_cancelled`.
+pub fn fetch_snapshot(api_key: &str, cancelled: &AtomicBool) -> Result<ApiSnapshot, ApiError> {
     let account_json = authorized_get("https://api.guildwars2.com/v2/account", api_key)?;
+    check_cancelled(cancelled)?;
     let achievements_json = authorized_get(
         &format!(
             "https://api.guildwars2.com/v2/account/achievements?ids={}",
@@ -83,15 +102,21 @@ pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
         ),
         api_key,
     )?;
+    check_cancelled(cancelled)?;
     let characters_json =
         authorized_get("https://api.guildwars2.com/v2/characters?ids=all", api_key)?;
+    check_cancelled(cancelled)?;
     let wallet_json =
         authorized_get_optional("https://api.guildwars2.com/v2/account/wallet", api_key)?;
+    check_cancelled(cancelled)?;
     let pvp_stats_json =
         authorized_get_optional("https://api.guildwars2.com/v2/pvp/stats", api_key)?;
+    check_cancelled(cancelled)?;
     let bank_json = authorized_get_optional("https://api.guildwars2.com/v2/account/bank", api_key)?;
+    check_cancelled(cancelled)?;
     let shared_inventory_json =
         authorized_get_optional("https://api.guildwars2.com/v2/account/inventory", api_key)?;
+    check_cancelled(cancelled)?;
     let materials_json =
         authorized_get_optional("https://api.guildwars2.com/v2/account/materials", api_key)?;
 
@@ -127,4 +152,21 @@ pub fn fetch_snapshot(api_key: &str) -> Result<ApiSnapshot, ApiError> {
         shared_inventory,
         materials,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_cancelled_ok_when_not_cancelled() {
+        let cancelled = AtomicBool::new(false);
+        assert!(check_cancelled(&cancelled).is_ok());
+    }
+
+    #[test]
+    fn check_cancelled_err_when_cancelled() {
+        let cancelled = AtomicBool::new(true);
+        assert!(check_cancelled(&cancelled).is_err());
+    }
 }
