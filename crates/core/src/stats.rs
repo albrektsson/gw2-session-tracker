@@ -126,10 +126,7 @@ pub fn pvp_rank_icon_url(rank: u32) -> &'static str {
 use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw};
 
 const CORE_STATS: &[StatDef] = &[
-    // Pinned above every category in the Select Stats tab instead of being
-    // filed under one - `categories: &[]` keeps it out of the normal
-    // per-category listing entirely.
-    StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: Some("https://render.guildwars2.com/file/3836E04A5BF0E8CCB815A8C1627904AB0CE5EE6A/1012474.png") },
+    StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: Some("https://render.guildwars2.com/file/B30D4ECDEF5CE5A04DD242075EB6794BB9BD0C3B/1227611.png") },
     // WvW
     StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
     StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },

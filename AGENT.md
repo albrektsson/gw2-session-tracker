@@ -97,9 +97,12 @@ offers today, delivered as a native Nexus addon.
 
 ## Conventions
 
-- Keep comments minimal and about the current state only. Don't narrate
-  history — what an approach used to be, what was tried before, why a
-  past attempt failed. That belongs in commit messages, not the file.
-  A comment should explain a non-obvious *why* about the code as it
-  stands today, nothing else.
+- Default to zero inline comments. Don't add a comment just because a line
+  does something non-trivial, or to explain a design/naming choice that's
+  already clear from the code itself. Only write one when a future reader
+  could not otherwise infer a genuinely non-obvious constraint or invariant
+  — and even then, keep it to a single short line.
+- Comments that do get written must describe the current state only. Don't
+  narrate history — what an approach used to be, what was tried before, why
+  a past attempt failed. That belongs in commit messages, not the file.
 - Commit messages are a single line — a summary title, no body.
