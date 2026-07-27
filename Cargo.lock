@@ -752,7 +752,7 @@ dependencies = [
 
 [[package]]
 name = "session_tracker"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "log",
  "nexus",
@@ -762,7 +762,7 @@ dependencies = [
 
 [[package]]
 name = "session_tracker_core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "session_tracker_net"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dotenvy",
  "log",
