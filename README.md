@@ -101,6 +101,11 @@ Some stat icons (`crates/addon/assets/icons/`) are adapted from
 [Taschenbuch/BlishHud-SessionTracker](https://github.com/Taschenbuch/BlishHud-SessionTracker),
 licensed under MIT.
 
+The Session Timer icon (`stopwatch.png`) is the
+["Stopwatch" icon](https://game-icons.net/1x1/skoll/stopwatch.html) by Skoll
+from [game-icons.net](https://game-icons.net), licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+
 ## Contributing
 
 Contributions are welcome — please open a pull request, or open an issue

@@ -9,6 +9,7 @@ static OBJECTIVE_BANNER_SHIELD: &[u8] = include_bytes!("../../assets/icons/objec
 static RANKING_MEDAL: &[u8] = include_bytes!("../../assets/icons/ranking-medal.png");
 static VICTORY_BADGE: &[u8] = include_bytes!("../../assets/icons/victory-badge.png");
 static DEFEAT_BADGE: &[u8] = include_bytes!("../../assets/icons/defeat-badge.png");
+static STOPWATCH: &[u8] = include_bytes!("../../assets/icons/stopwatch.png");
 
 /// Maps a stat id with no natural GW2 icon to a vendored icon adapted from
 /// BlishHud-SessionTracker (see README.md for licensing/attribution). `None`
@@ -26,6 +27,7 @@ pub fn embedded_icon_bytes(stat_id: &str) -> Option<&'static [u8]> {
         "pvp_ranking_points" => Some(RANKING_MEDAL),
         "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(VICTORY_BADGE),
         "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(DEFEAT_BADGE),
+        "session_timer" => Some(STOPWATCH),
         _ => None,
     }
 }
