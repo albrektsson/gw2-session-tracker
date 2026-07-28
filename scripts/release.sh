@@ -11,6 +11,30 @@ tag="v$version"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "version must look like X.Y.Z (got: $version)" >&2
+    exit 1
+fi
+
+current_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+IFS=. read -r cur_major cur_minor cur_patch <<< "$current_version"
+IFS=. read -r new_major new_minor new_patch <<< "$version"
+
+if [[ "$new_major" -eq $((cur_major + 1)) && "$new_minor" -eq 0 && "$new_patch" -eq 0 ]]; then
+    :
+elif [[ "$new_major" -eq "$cur_major" && "$new_minor" -eq $((cur_minor + 1)) && "$new_patch" -eq 0 ]]; then
+    :
+elif [[ "$new_major" -eq "$cur_major" && "$new_minor" -eq "$cur_minor" && "$new_patch" -eq $((cur_patch + 1)) ]]; then
+    :
+else
+    echo "invalid version bump: $current_version -> $version" >&2
+    echo "from $current_version, only these are allowed:" >&2
+    echo "  $cur_major.$cur_minor.$((cur_patch + 1))  (patch)" >&2
+    echo "  $cur_major.$((cur_minor + 1)).0  (minor)" >&2
+    echo "  $((cur_major + 1)).0.0  (major)" >&2
+    exit 1
+fi
+
 if [ -n "$(git status --porcelain)" ]; then
     echo "working tree is not clean, commit or stash first" >&2
     exit 1
