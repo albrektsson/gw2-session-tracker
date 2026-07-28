@@ -347,6 +347,21 @@ pub fn resolve_selected_stats(selected_ids: &[String]) -> Vec<&'static StatDef> 
         .collect()
 }
 
+/// Every real GW2 icon URL a currently selected stat could render, for
+/// prefetching into the on-disk icon cache. Includes all 9 PvP rank tier
+/// badges whenever "pvp_rank" is selected, since the tier shown depends on
+/// live rank and can change mid-session (e.g. a rank-up) - caching only the
+/// currently active tier would leave a gap the next time the player crosses
+/// a tier threshold.
+pub fn icon_urls_for_selected(selected_ids: &[String]) -> Vec<&'static str> {
+    let selected = resolve_selected_stats(selected_ids);
+    let mut urls: Vec<&'static str> = selected.iter().filter_map(|s| s.icon_url).collect();
+    if selected.iter().any(|s| s.id == "pvp_rank") {
+        urls.extend(PVP_RANK_TIERS.iter().map(|t| t.icon_url));
+    }
+    urls
+}
+
 /// Toggles `id` in `selected`: appends if absent, removes if present.
 /// No-op if `id` isn't a valid `STAT_CATALOG` id.
 pub fn toggle_stat(selected: &mut Vec<String>, id: &str) {
@@ -749,6 +764,29 @@ mod tests {
     #[test]
     fn resolve_selected_stats_empty_input_yields_empty_output() {
         assert!(resolve_selected_stats(&[]).is_empty());
+    }
+
+    #[test]
+    fn icon_urls_for_selected_includes_real_icon_stats_only() {
+        let selected = vec!["gold".to_string(), "kills".to_string()];
+        let urls = icon_urls_for_selected(&selected);
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0], STAT_CATALOG.iter().find(|s| s.id == "gold").unwrap().icon_url.unwrap());
+    }
+
+    #[test]
+    fn icon_urls_for_selected_adds_all_pvp_rank_tiers_when_pvp_rank_selected() {
+        let selected = vec!["pvp_rank".to_string()];
+        let urls = icon_urls_for_selected(&selected);
+        assert_eq!(urls.len(), PVP_RANK_TIERS.len());
+        for tier in PVP_RANK_TIERS {
+            assert!(urls.contains(&tier.icon_url));
+        }
+    }
+
+    #[test]
+    fn icon_urls_for_selected_empty_when_nothing_selected() {
+        assert!(icon_urls_for_selected(&[]).is_empty());
     }
 
     #[test]

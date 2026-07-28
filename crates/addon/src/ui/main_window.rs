@@ -1,5 +1,6 @@
 use nexus::imgui::{Image, Ui};
 use std::{
+    path::Path,
     sync::{atomic::AtomicBool, Arc, Mutex},
     time::Instant,
 };
@@ -45,7 +46,22 @@ fn split_icon_url(url: &str) -> Option<(&str, &str)> {
 /// URL that later changes (e.g. a stat id, when the actual icon depends
 /// on live state like a PvP rank tier) would keep serving the
 /// first-ever-registered image forever.
-fn render_icon(identifier: &str, icon_url: &str, icon_size: f32, ui: &Ui) {
+///
+/// Prefers a locally cached copy (populated by the poller, see
+/// `icon_cache`) over the network: identical content either way, since
+/// the cache is keyed by the same URL, so which path serves a given
+/// render is invisible to the user - it just avoids a redundant fetch of
+/// something already on disk.
+fn render_icon(identifier: &str, icon_url: &str, cache_dir: &Path, icon_size: f32, ui: &Ui) {
+    let cached_path = session_tracker_net::icon_cache::cache_path(cache_dir, icon_url);
+    if cached_path.is_file()
+        && let Some(texture) = nexus::texture::get_texture_or_create_from_file(identifier, &cached_path)
+    {
+        Image::new(texture.id(), [icon_size, icon_size]).build(ui);
+        ui.same_line();
+        return;
+    }
+
     let Some((remote, endpoint)) = split_icon_url(icon_url) else {
         return;
     };
@@ -92,7 +108,8 @@ fn draw_text(ui: &Ui, color: [f32; 4], text: &str, bold: bool) {
     ui.dummy(ui.calc_text_size(text));
 }
 
-pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
+pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
     let state = lock_recover(shared);
     nexus::imgui::Window::new("Session Tracker")
         .bg_alpha(state.background_opacity)
@@ -152,13 +169,13 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>) {
                     let rank = state.session.lifetime_value("pvp_rank") as u32;
                     let tier = pvp_rank_tier(rank);
                     let identifier = format!("SESSION_TRACKER_ICON_pvp_rank_tier_{}", tier.min_rank);
-                    render_icon(&identifier, tier.icon_url, icon_size, ui);
+                    render_icon(&identifier, tier.icon_url, &cache_dir, icon_size, ui);
                 } else if let Some(bytes) = icons::embedded_icon_bytes(stat.id) {
                     let identifier = format!("SESSION_TRACKER_ICON_EMBED_{}", stat.id);
                     render_embedded_icon(&identifier, bytes, icon_size, state.icon_color, ui);
                 } else if let Some(icon_url) = stat.icon_url {
                     let identifier = format!("SESSION_TRACKER_ICON_{icon_url}");
-                    render_icon(&identifier, icon_url, icon_size, ui);
+                    render_icon(&identifier, icon_url, &cache_dir, icon_size, ui);
                 }
 
                 if stat.id == "session_timer" {

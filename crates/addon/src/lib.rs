@@ -112,11 +112,17 @@ fn load() {
     register_keybind_with_string("SESSION_TRACKER_TOGGLE_MAIN", toggle_main, "ALT+SHIFT+W")
         .revert_on_unload();
 
-    let poller = Poller::spawn(
-        shared.clone(),
-        Duration::from_secs(60),
-        |api_key, shutdown| fetch_snapshot(api_key, shutdown).map_err(|err| err.to_string()),
-    );
+    let icon_cache_dir = session_tracker_net::icon_cache::cache_dir(&addon_dir);
+    let shared_for_icons = shared.clone();
+    let poller = Poller::spawn(shared.clone(), Duration::from_secs(60), move |api_key, shutdown| {
+        let result = fetch_snapshot(api_key, shutdown).map_err(|err| err.to_string());
+        let icon_urls = {
+            let state = lock_recover(&shared_for_icons);
+            session_tracker_core::stats::icon_urls_for_selected(&state.selected_stats)
+        };
+        session_tracker_net::icon_cache::cache_missing_icons(&icon_cache_dir, &icon_urls, shutdown);
+        result
+    });
 
     let mut addon = lock_recover(&ADDON);
     if addon.is_some() {
@@ -170,6 +176,6 @@ fn render_frame(ui: &Ui) {
     }
 
     if SHOW_MAIN.load(std::sync::atomic::Ordering::Relaxed) {
-        render_main_window(ui, &addon.shared);
+        render_main_window(ui, &addon.shared, &addon.addon_dir);
     }
 }

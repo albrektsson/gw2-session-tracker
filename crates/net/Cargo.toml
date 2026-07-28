@@ -10,3 +10,4 @@ log = "0.4"
 
 [dev-dependencies]
 dotenvy = "0.15"
+tempfile = "3"
