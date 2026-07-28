@@ -106,6 +106,11 @@ The Session Timer icon (`stopwatch.png`) is the
 from [game-icons.net](https://game-icons.net), licensed under
 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 
+The Distance Traveled icon (`run.png`) is the
+["Run" icon](https://game-icons.net/1x1/lorc/run.html) by Lorc from
+[game-icons.net](https://game-icons.net), licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+
 ## Contributing
 
 Contributions are welcome — please open a pull request, or open an issue

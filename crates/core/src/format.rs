@@ -42,6 +42,12 @@ pub fn format_duration(seconds: f64) -> String {
     format!("{hours:02}:{minutes:02}:{secs:02}")
 }
 
+/// Formats a meter count as kilometers with 2 decimals, e.g. `1500.0` ->
+/// `"1.50 km"`. Negative input clamps to zero.
+pub fn format_distance(meters: f64) -> String {
+    format!("{:.2} km", meters.max(0.0) / 1000.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,5 +147,35 @@ mod tests {
     #[test]
     fn format_duration_clamps_negative_to_zero() {
         assert_eq!(format_duration(-5.0), "00:00:00");
+    }
+
+    #[test]
+    fn format_distance_zero() {
+        assert_eq!(format_distance(0.0), "0.00 km");
+    }
+
+    #[test]
+    fn format_distance_sub_km() {
+        assert_eq!(format_distance(500.0), "0.50 km");
+    }
+
+    #[test]
+    fn format_distance_exact_km() {
+        assert_eq!(format_distance(1000.0), "1.00 km");
+    }
+
+    #[test]
+    fn format_distance_multi_km() {
+        assert_eq!(format_distance(12345.0), "12.35 km");
+    }
+
+    #[test]
+    fn format_distance_rounds_before_formatting() {
+        assert_eq!(format_distance(1236.0), "1.24 km");
+    }
+
+    #[test]
+    fn format_distance_clamps_negative_to_zero() {
+        assert_eq!(format_distance(-500.0), "0.00 km");
     }
 }

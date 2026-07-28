@@ -82,14 +82,24 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
         let needle = query.to_lowercase();
         let mut state = lock_recover(shared);
 
-        if let Some(timer) = STAT_CATALOG.iter().find(|s| s.id == "session_timer")
-            && (needle.is_empty() || timer.display_name.to_lowercase().contains(&needle))
-        {
-            let mut checked = state.selected_stats.iter().any(|id| id == timer.id);
-            if ui.checkbox(timer.display_name, &mut checked) {
-                toggle_stat(&mut state.selected_stats, timer.id);
-                persist(&state, addon_dir);
+        // Stats with no `Category` at all (client-computed, not browsable by
+        // activity type) are pinned here above the category tree instead -
+        // `stats_in_category` below would never match them otherwise.
+        const PINNED_STAT_IDS: &[&str] = &["session_timer", "distance_traveled"];
+        let mut any_pinned_shown = false;
+        for &id in PINNED_STAT_IDS {
+            if let Some(stat) = STAT_CATALOG.iter().find(|s| s.id == id)
+                && (needle.is_empty() || stat.display_name.to_lowercase().contains(&needle))
+            {
+                any_pinned_shown = true;
+                let mut checked = state.selected_stats.iter().any(|sid| sid == stat.id);
+                if ui.checkbox(stat.display_name, &mut checked) {
+                    toggle_stat(&mut state.selected_stats, stat.id);
+                    persist(&state, addon_dir);
+                }
             }
+        }
+        if any_pinned_shown {
             ui.separator();
         }
 

@@ -11,5 +11,5 @@ crate-type = ["cdylib"]
 [dependencies]
 session_tracker_core = { path = "../core" }
 session_tracker_net = { path = "../net" }
-nexus = { git = "https://github.com/Zerthox/nexus-rs", features = ["log", "log_filter"] }
+nexus = { git = "https://github.com/Zerthox/nexus-rs", features = ["log", "log_filter", "mumble"] }
 log = "0.4"

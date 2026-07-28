@@ -171,6 +171,10 @@ fn render_frame(ui: &Ui) {
         return;
     };
 
+    if let Some(link) = nexus::data_link::read_mumble_link() {
+        lock_recover(&addon.shared).session.sample_position(link.avatar.position);
+    }
+
     if SHOW_SETTINGS.load(std::sync::atomic::Ordering::Relaxed) {
         render_settings_window(ui, &addon.shared, &addon.addon_dir);
     }

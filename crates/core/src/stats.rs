@@ -21,6 +21,7 @@ pub enum StatSource {
     PvpKdr,
     Item(u32),
     SessionTimer,
+    DistanceTraveled,
 }
 
 /// A stat's browsing category in the Select Stats picker. Purely a UI
@@ -127,6 +128,7 @@ use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, S
 
 const CORE_STATS: &[StatDef] = &[
     StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: None },
+    StatDef { id: "distance_traveled", display_name: "Distance Traveled", source: StatSource::DistanceTraveled, categories: &[], icon_url: None },
     // WvW
     StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
     StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },
@@ -296,9 +298,9 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
             | StatSource::PvpKdr
             | StatSource::PvpCustomWins
             | StatSource::PvpCustomLosses => continue,
-            // client-computed at render time from `SessionTracker::elapsed`,
-            // not from any snapshot field
-            StatSource::SessionTimer => continue,
+            // client-computed at render time (elapsed time / MumbleLink
+            // position), not from any snapshot field
+            StatSource::SessionTimer | StatSource::DistanceTraveled => continue,
         };
         values.insert(stat.id, value);
     }
@@ -506,9 +508,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_nine_stats() {
-        // 1 session timer + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
-        assert_eq!(STAT_CATALOG.len(), 809);
+    fn catalog_has_eight_hundred_ten_stats() {
+        // 1 session timer + 1 distance traveled + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
+        assert_eq!(STAT_CATALOG.len(), 810);
     }
 
     #[test]
