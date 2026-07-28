@@ -1,14 +1,24 @@
-static SKULL_SHIELD: &[u8] = include_bytes!("../../assets/icons/skull-shield.png");
-static SKULL_X: &[u8] = include_bytes!("../../assets/icons/skull-x.png");
-static KD_RATIO: &[u8] = include_bytes!("../../assets/icons/kd-ratio.png");
-static WVW_RANK_BADGE: &[u8] = include_bytes!("../../assets/icons/wvw-rank-badge.png");
+static KILL: &[u8] = include_bytes!("../../assets/icons/kill.png");
+static DEATH: &[u8] = include_bytes!("../../assets/icons/death.png");
+static KDR: &[u8] = include_bytes!("../../assets/icons/kdr.png");
+static WVW_RANK: &[u8] = include_bytes!("../../assets/icons/wvwRank.png");
+static PVP_RANK: &[u8] = include_bytes!("../../assets/icons/pvpRank.png");
 static DOLYAK: &[u8] = include_bytes!("../../assets/icons/dolyak.png");
-static DOLYAK_SHIELD: &[u8] = include_bytes!("../../assets/icons/dolyak-shield.png");
-static OBJECTIVE_BANNER: &[u8] = include_bytes!("../../assets/icons/objective-banner.png");
-static OBJECTIVE_BANNER_SHIELD: &[u8] = include_bytes!("../../assets/icons/objective-banner-shield.png");
-static RANKING_MEDAL: &[u8] = include_bytes!("../../assets/icons/ranking-medal.png");
-static VICTORY_BADGE: &[u8] = include_bytes!("../../assets/icons/victory-badge.png");
-static DEFEAT_BADGE: &[u8] = include_bytes!("../../assets/icons/defeat-badge.png");
+static DOLYAK_DEFENDED: &[u8] = include_bytes!("../../assets/icons/dolyakDefended.png");
+static CAMP: &[u8] = include_bytes!("../../assets/icons/camp.png");
+static CAMP_DEFENDED: &[u8] = include_bytes!("../../assets/icons/campDefended.png");
+static TOWER: &[u8] = include_bytes!("../../assets/icons/tower.png");
+static TOWER_DEFENDED: &[u8] = include_bytes!("../../assets/icons/towerDefended.png");
+static KEEP: &[u8] = include_bytes!("../../assets/icons/keep.png");
+static KEEP_DEFENDED: &[u8] = include_bytes!("../../assets/icons/keepDefended.png");
+static CASTLE: &[u8] = include_bytes!("../../assets/icons/castle.png");
+static CASTLE_DEFENDED: &[u8] = include_bytes!("../../assets/icons/castleDefended.png");
+static OBJECTIVE: &[u8] = include_bytes!("../../assets/icons/objective.png");
+static OBJECTIVE_DEFENDED: &[u8] = include_bytes!("../../assets/icons/objectiveDefended.png");
+static SUPPLY_SPEND: &[u8] = include_bytes!("../../assets/icons/supplySpend.png");
+static PVP_RANKING_POINTS: &[u8] = include_bytes!("../../assets/icons/pvpRankingPoints.png");
+static PVP_WINS: &[u8] = include_bytes!("../../assets/icons/pvpWins.png");
+static PVP_LOSSES: &[u8] = include_bytes!("../../assets/icons/pvpLosses.png");
 static STOPWATCH: &[u8] = include_bytes!("../../assets/icons/stopwatch.png");
 
 /// Maps a stat id with no natural GW2 icon to a vendored icon adapted from
@@ -16,17 +26,27 @@ static STOPWATCH: &[u8] = include_bytes!("../../assets/icons/stopwatch.png");
 /// for any stat that has, or falls back to, a real API icon instead.
 pub fn embedded_icon_bytes(stat_id: &str) -> Option<&'static [u8]> {
     match stat_id {
-        "kills" | "pvp_kills" => Some(SKULL_SHIELD),
-        "deaths" => Some(SKULL_X),
-        "kdr" | "pvp_kdr" => Some(KD_RATIO),
-        "wvw_rank" | "pvp_rank" => Some(WVW_RANK_BADGE),
+        "kills" | "pvp_kills" => Some(KILL),
+        "deaths" => Some(DEATH),
+        "kdr" | "pvp_kdr" => Some(KDR),
+        "wvw_rank" => Some(WVW_RANK),
+        "pvp_rank" => Some(PVP_RANK),
         "dolyaks_killed" => Some(DOLYAK),
-        "dolyaks_escorted" => Some(DOLYAK_SHIELD),
-        "objectives_captured" => Some(OBJECTIVE_BANNER),
-        "objectives_defended" => Some(OBJECTIVE_BANNER_SHIELD),
-        "pvp_ranking_points" => Some(RANKING_MEDAL),
-        "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(VICTORY_BADGE),
-        "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(DEFEAT_BADGE),
+        "dolyaks_escorted" => Some(DOLYAK_DEFENDED),
+        "camps_captured" => Some(CAMP),
+        "camps_defended" => Some(CAMP_DEFENDED),
+        "towers_captured" => Some(TOWER),
+        "towers_defended" => Some(TOWER_DEFENDED),
+        "keeps_captured" => Some(KEEP),
+        "keeps_defended" => Some(KEEP_DEFENDED),
+        "castles_captured" => Some(CASTLE),
+        "castles_defended" => Some(CASTLE_DEFENDED),
+        "objectives_captured" => Some(OBJECTIVE),
+        "objectives_defended" => Some(OBJECTIVE_DEFENDED),
+        "supply_repair" => Some(SUPPLY_SPEND),
+        "pvp_ranking_points" => Some(PVP_RANKING_POINTS),
+        "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(PVP_WINS),
+        "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(PVP_LOSSES),
         "session_timer" => Some(STOPWATCH),
         _ => None,
     }
