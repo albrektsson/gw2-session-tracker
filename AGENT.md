@@ -60,23 +60,30 @@ an item id.
   player's API key, the same mechanism BlishHud-SessionTracker uses. Some
   values lag behind real-time play by the API's own propagation delay,
   same as the reference module.
-- **Lifetime** for an achievement, currency, or account-field stat is
-  simply the current value the API reports — it only ever goes up.
+- **Lifetime** for most stats is simply the current value the API
+  reports. Achievement- and deaths-backed stats only ever go up (a lower
+  value from a later poll is treated as a transient API glitch and
+  ignored), but currency-backed stats are a live wallet balance, not a
+  strict all-time total: spending gold, crafting with mystic coins, buying
+  with badges of honor, etc. all make the value go *down*, and a session
+  that includes a spend will show a negative session delta for that stat.
 - **Item-based stats have no achievement or currency to read**, so their
   lifetime value is computed by summing how many of that item id the
   player currently holds: across every character's bags, the account
   bank, shared inventory slots, and material storage (material storage is
-  a separate API resource with no bag/slot structure of its own). Unlike
-  every other stat, this count can go *down* as well as up — the player
-  can spend, salvage, or deposit the item — so it behaves as a live
+  a separate API resource with no bag/slot structure of its own). Like
+  currency-backed stats, this count can go *down* as well as up — the
+  player can spend, salvage, or deposit the item — so it behaves as a live
   possession count, not a strict all-time total.
 - **Session** for a stat is the delta between its current lifetime value
   and its value when the session started — except where a raw
   diff-of-values would be meaningless (a ratio like KDR), which is instead
   computed from its underlying session deltas (session kills ÷ session
   deaths, not lifetime-KDR-now minus lifetime-KDR-then). The same delta
-  math applies to item-based stats; it just isn't guaranteed to be a pure
-  "amount gained," since the player may also spend some mid-session.
+  math applies to currency- and item-based stats; it just isn't guaranteed
+  to be a pure "amount gained," since the player may also spend some
+  mid-session — a session that spends more than it earns shows as a
+  negative value.
 - A session can be reset (manually, and/or automatically on a trigger like
   re-entering WvW or a game restart) so the player can measure "how much
   did I get done tonight" or "since I logged in today" however they like.
