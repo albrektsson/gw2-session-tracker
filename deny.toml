@@ -1,0 +1,74 @@
+# cargo-deny config - see https://embarkstudios.github.io/cargo-deny/
+#
+# Run locally with `cargo deny check` (requires `cargo install cargo-deny`).
+
+[graph]
+# Matches what CI actually builds/tests: native tests run on ubuntu-latest,
+# the addon itself is only ever built for the two Windows targets.
+targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu", "x86_64-pc-windows-msvc"]
+
+[advisories]
+ignore = [
+    # Both are transitive deps of `arcdps-imgui`/`nexus` (parking_lot 0.11 and
+    # a proc-macro helper) - not something we can upgrade from here, and
+    # neither is an actual vulnerability, just an unmaintained-crate notice.
+    { id = "RUSTSEC-2024-0384", reason = "transitive via arcdps-imgui's parking_lot 0.11; no vulnerability, just unmaintained" },
+    { id = "RUSTSEC-2024-0436", reason = "transitive via nexus/nexus_codegen; no vulnerability, just unmaintained" },
+]
+
+[licenses]
+# Every license actually present in the dependency tree as of writing (see
+# `cargo deny check licenses` for the full breakdown by crate). All
+# permissive; nothing copyleft.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "Zlib",
+    "Unlicense",
+    "0BSD",
+    # webpki-roots bundles Mozilla's root certificate list under this
+    # data-oriented (not code) license.
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.8
+
+# `nexus`/`nexus_codegen`/`gw2_mumble` (the git dependencies, see
+# [sources] below) don't set Cargo.toml's `license` field, but each repo
+# ships a plain MIT `LICENSE` file - clarify it explicitly rather than
+# treating them as unlicensed.
+[[licenses.clarify]]
+crate = "nexus"
+expression = "MIT"
+license-files = [{ path = "../LICENSE", hash = 0x34a63735 }]
+
+[[licenses.clarify]]
+crate = "nexus_codegen"
+expression = "MIT"
+license-files = [{ path = "../LICENSE", hash = 0x34a63735 }]
+
+[[licenses.clarify]]
+crate = "gw2_mumble"
+expression = "MIT"
+license-files = [{ path = "LICENSE", hash = 0x8443c089 }]
+
+[bans]
+multiple-versions = "warn"
+# "deny" would also flag our own workspace path deps (`{ path = "../core" }`)
+# and the unversioned git deps below as "wildcards" - neither is a real risk,
+# so this stays at the default.
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# `nexus` (the Nexus addon-framework bindings) and its own `gw2_mumble`
+# dependency aren't published to crates.io - pin the exact repos allowed
+# rather than trusting the whole GitHub org/user.
+allow-git = [
+    "https://github.com/Zerthox/nexus-rs",
+    "https://github.com/zerthox/gw2-mumble-rs",
+]

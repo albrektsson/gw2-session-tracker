@@ -31,6 +31,8 @@ jobs:
             api.guildwars2.com:443
             github.com:443
             index.crates.io:443
+            objects.githubusercontent.com:443
+            raw.githubusercontent.com:443
             static.crates.io:443
             static.rust-lang.org:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
@@ -48,6 +50,13 @@ jobs:
         run: cargo test --locked -p session_tracker_net --test live_api -- --ignored
       - name: cargo clippy
         run: cargo clippy --locked -p session_tracker_core -p session_tracker_net --all-targets -- -D warnings
+      - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # ratchet:taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-machete
+      - name: cargo deny check
+        run: cargo deny check
+      - name: cargo machete
+        run: cargo machete
 
   build-windows:
     name: Build addon (x86_64-pc-windows-msvc)
