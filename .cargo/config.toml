@@ -1,31 +1,27 @@
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
 
-# Statically link libstdc++/libgcc/libwinpthread so the built session_tracker.dll
-# has zero MinGW-runtime-DLL dependencies (only stock Windows system DLLs).
-# Without this, Nexus's loader fails LoadLibrary on the addon (reported as
-# addon state "NotLoadedIncompatible") because libstdc++-6.dll (needed by
-# arcdps-imgui's vendored C++ code for __cxa_guard_acquire/release) isn't
-# present on a normal Windows install.
+# Static-link the MinGW runtime so session_tracker.dll only depends on stock
+# Windows DLLs. Without this, Nexus's loader rejects the addon
+# ("NotLoadedIncompatible") because a normal Windows install has no
+# libstdc++-6.dll (needed by arcdps-imgui's vendored C++ code).
 #
-# Plain `-static-libgcc -static-libstdc++` isn't enough: rustc's own default
-# link template inserts a `-Wl,-Bdynamic` before the system-libs section, so
-# a bare `-static` flag placed later in `-C link-args` doesn't retroactively
-# take effect. We must explicitly reopen `-Wl,-Bstatic` right before our own
-# group. `--start-group`/`--end-group` resolves the circular references
-# between libstdc++/libgcc/libwinpthread/mingwex (libwinpthread's thread
-# cleanup code references symbols - e.g. `_gnu_exception_handler` on the
-# posix-threading-model mingw-w64 toolchain Ubuntu's CI runners use - that
-# only resolve if libmingwex is in the same static group, not linked
-# separately afterward); `-Wl,-Bdynamic` afterward restores dynamic linking
-# for msvcrt/kernel32 (always-present system/CRT components, dynamic
-# linkage is fine for those).
-rustflags = ["-C", "link-args=-Wl,-Bstatic -Wl,--start-group -lstdc++ -lwinpthread -lgcc -lgcc_eh -lmingwex -Wl,--end-group -Wl,-Bdynamic -lmsvcrt -lkernel32"]
+# Plain `-static-libgcc -static-libstdc++` doesn't work: rustc's link
+# template reopens `-Wl,-Bdynamic` after the system libs, so a bare `-static`
+# placed later has no effect - we have to reopen `-Wl,-Bstatic` ourselves.
+# The four static libs go in one `--start-group`/`--end-group` because
+# libwinpthread's thread-cleanup code needs a libmingwex symbol resolved in
+# the same pass, not linked separately afterward. `-Wl,-Bdynamic` at the end
+# restores dynamic linking for msvcrt/kernel32, which is fine since those are
+# always present.
+rustflags = [
+  "-C", "link-args=-Wl,-Bstatic",
+  "-C", "link-args=-Wl,--start-group -lstdc++ -lwinpthread -lgcc -lgcc_eh -lmingwex -Wl,--end-group",
+  "-C", "link-args=-Wl,-Bdynamic -lmsvcrt -lkernel32",
+]
 
-# arcdps-imgui-sys's build script (via the `cc` crate) otherwise emits its
-# own dynamic `cargo:rustc-link-lib=stdc++`, which resolves libstdc++-6.dll
-# dynamically regardless of the flags above. Suppressing the cc crate's
-# automatic C++ stdlib link (empty CXXSTDLIB) makes our own static -lstdc++
-# above the only source of that symbol.
+# Without this, arcdps-imgui-sys's build script (via the `cc` crate) emits
+# its own dynamic `-lstdc++`, pulling libstdc++-6.dll back in regardless of
+# the static link above.
 [env]
 CXXSTDLIB = ""
