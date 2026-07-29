@@ -79,6 +79,9 @@ fn load() {
     let shared = Arc::new(Mutex::new(AppState::new(
         config.api_key,
         config.selected_stats,
+        config.wvw_selected_stats,
+        config.pvp_selected_stats,
+        config.pve_selected_stats,
         config.background_opacity,
         config.text_scale,
         config.bold_text,
@@ -172,7 +175,12 @@ fn render_frame(ui: &Ui) {
     };
 
     if let Some(link) = nexus::data_link::read_mumble_link() {
-        lock_recover(&addon.shared).session.sample_position(link.avatar.position);
+        let mut state = lock_recover(&addon.shared);
+        state.session.sample_position(link.avatar.position);
+        state.session.sample_combat_state(
+            link.context.ui_state.contains(nexus::data_link::mumble::UiState::IS_IN_COMBAT),
+        );
+        state.current_map_group = session_tracker_core::map_context::map_group_for(link.context.map_type);
     }
 
     if SHOW_SETTINGS.load(std::sync::atomic::Ordering::Relaxed) {

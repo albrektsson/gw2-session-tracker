@@ -1,6 +1,7 @@
 pub mod api;
 pub mod config;
 pub mod format;
+pub mod map_context;
 mod material_storage;
 pub mod session;
 pub mod stats;

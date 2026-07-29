@@ -8,7 +8,7 @@ use session_tracker_core::{
     stats::{move_stat_down, move_stat_to, move_stat_up, resolve_selected_stats},
     sync::lock_recover,
 };
-use session_tracker_net::state::{AppState, PollStatus};
+use session_tracker_net::state::{AppState, PollStatus, StatListKind};
 
 use super::settings_window::config_from_state;
 
@@ -20,8 +20,19 @@ enum PendingMove {
 }
 
 pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
+    if let Some(_tabs) = ui.tab_bar("arrange-list-scope") {
+        for kind in StatListKind::ALL {
+            if let Some(_tab) = ui.tab_item(kind.label()) {
+                render_arrange_stats_editor(ui, shared, addon_dir, kind);
+            }
+        }
+    }
+}
+
+fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path, kind: StatListKind) {
+    let label = kind.label();
     let mut state = lock_recover(shared);
-    let selected = resolve_selected_stats(&state.selected_stats);
+    let selected = resolve_selected_stats(state.stat_list(kind));
     if selected.is_empty() {
         ui.text("No stats selected. Use the Select Stats tab to pick some first.");
         return;
@@ -29,16 +40,16 @@ pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_di
 
     let mut pending_move: Option<PendingMove> = None;
     for stat in &selected {
-        if ui.arrow_button(format!("##up_{}", stat.id), Direction::Up) {
+        if ui.arrow_button(format!("##{label}_up_{}", stat.id), Direction::Up) {
             pending_move = Some(PendingMove::Step { id: stat.id, up: true });
         }
         ui.same_line();
-        if ui.arrow_button(format!("##down_{}", stat.id), Direction::Down) {
+        if ui.arrow_button(format!("##{label}_down_{}", stat.id), Direction::Down) {
             pending_move = Some(PendingMove::Step { id: stat.id, up: false });
         }
         ui.same_line();
 
-        Selectable::new(format!("{}##drag_{}", stat.display_name, stat.id)).build(ui);
+        Selectable::new(format!("{}##{label}_drag_{}", stat.display_name, stat.id)).build(ui);
 
         if DragDropSource::new(DRAG_DROP_PAYLOAD).begin_payload(ui, stat.id).is_some() {
             ui.text(stat.display_name);
@@ -54,10 +65,11 @@ pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_di
     }
 
     if let Some(pending) = pending_move {
+        let list = state.stat_list_mut(kind);
         match pending {
-            PendingMove::Step { id, up: true } => move_stat_up(&mut state.selected_stats, id),
-            PendingMove::Step { id, up: false } => move_stat_down(&mut state.selected_stats, id),
-            PendingMove::To { id, before_id } => move_stat_to(&mut state.selected_stats, id, before_id),
+            PendingMove::Step { id, up: true } => move_stat_up(list, id),
+            PendingMove::Step { id, up: false } => move_stat_down(list, id),
+            PendingMove::To { id, before_id } => move_stat_to(list, id, before_id),
         }
 
         let config = config_from_state(&state);

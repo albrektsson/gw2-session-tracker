@@ -21,6 +21,7 @@ static PVP_WINS: &[u8] = include_bytes!("../../assets/icons/pvpWins.png");
 static PVP_LOSSES: &[u8] = include_bytes!("../../assets/icons/pvpLosses.png");
 static STOPWATCH: &[u8] = include_bytes!("../../assets/icons/stopwatch.png");
 static RUN: &[u8] = include_bytes!("../../assets/icons/run.png");
+static CROSSED_SWORDS: &[u8] = include_bytes!("../../assets/icons/crossed-swords.png");
 
 /// Maps a stat id with no natural GW2 icon to a vendored icon adapted from
 /// BlishHud-SessionTracker (see README.md for licensing/attribution). `None`
@@ -50,6 +51,7 @@ pub fn embedded_icon_bytes(stat_id: &str) -> Option<&'static [u8]> {
         "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(PVP_LOSSES),
         "session_timer" => Some(STOPWATCH),
         "distance_traveled" => Some(RUN),
+        "combat_time" => Some(CROSSED_SWORDS),
         _ => None,
     }
 }

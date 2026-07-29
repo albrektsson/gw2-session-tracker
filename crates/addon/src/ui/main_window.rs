@@ -6,6 +6,7 @@ use std::{
 };
 use session_tracker_core::{
     format::{format_coin, format_distance, format_duration, format_thousands},
+    map_context::MapGroup,
     stats::{pvp_rank_tier, resolve_selected_stats},
     sync::lock_recover,
 };
@@ -150,7 +151,19 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Pa
                 }
             }
 
-            let selected = resolve_selected_stats(&state.selected_stats);
+            let mut selected = resolve_selected_stats(&state.selected_stats);
+            if let Some(group) = state.current_map_group {
+                let mode_ids = match group {
+                    MapGroup::Wvw => &state.wvw_selected_stats,
+                    MapGroup::Pvp => &state.pvp_selected_stats,
+                    MapGroup::Pve => &state.pve_selected_stats,
+                };
+                for stat in resolve_selected_stats(mode_ids) {
+                    if !selected.iter().any(|s| s.id == stat.id) {
+                        selected.push(stat);
+                    }
+                }
+            }
             if selected.is_empty() {
                 ui.text(format!(
                     "No stats selected. Open Settings (default keybind {}, rebindable in Nexus) to pick some.",
@@ -189,6 +202,15 @@ pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Pa
 
                 if stat.id == "distance_traveled" {
                     let text = format_distance(state.session.distance_traveled_meters());
+                    draw_text(ui, state.text_color, &text, state.bold_text);
+                    if ui.is_item_hovered() {
+                        ui.tooltip_text(stat.display_name);
+                    }
+                    continue;
+                }
+
+                if stat.id == "combat_time" {
+                    let text = format_duration(state.session.combat_time_elapsed().as_secs_f64());
                     draw_text(ui, state.text_color, &text, state.bold_text);
                     if ui.is_item_hovered() {
                         ui.tooltip_text(stat.display_name);

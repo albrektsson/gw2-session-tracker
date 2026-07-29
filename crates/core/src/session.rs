@@ -19,6 +19,8 @@ pub struct SessionTracker {
     started_at: Option<Instant>,
     distance_meters: f64,
     last_position: Option<[f32; 3]>,
+    combat_duration: Duration,
+    combat_sample: Option<(Instant, bool)>,
 }
 
 impl SessionTracker {
@@ -86,6 +88,26 @@ impl SessionTracker {
         self.distance_meters
     }
 
+    /// Feeds in the live in-combat flag (MumbleLink `context.ui_state &
+    /// IS_IN_COMBAT`) and accumulates the time spent in combat since the
+    /// last sample. The interval since the *previous* sample is added only
+    /// if the player was in combat for that whole interval (i.e.
+    /// `in_combat` was true on the previous call) - this call's own
+    /// `in_combat` only takes effect starting from the *next* sample.
+    pub fn sample_combat_state(&mut self, in_combat: bool) {
+        let now = Instant::now();
+        if let Some((last_at, was_in_combat)) = self.combat_sample {
+            if was_in_combat {
+                self.combat_duration += now.duration_since(last_at);
+            }
+        }
+        self.combat_sample = Some((now, in_combat));
+    }
+
+    pub fn combat_time_elapsed(&self) -> Duration {
+        self.combat_duration
+    }
+
     /// Re-baselines to the current lifetime values, so every stat's
     /// session value restarts at zero immediately (rather than waiting
     /// for the next poll to naturally re-baseline, which only happens
@@ -94,6 +116,10 @@ impl SessionTracker {
         self.baseline = Some(self.lifetime.clone());
         self.started_at = Some(Instant::now());
         self.distance_meters = 0.0;
+        if let Some((_, was_in_combat)) = self.combat_sample {
+            self.combat_sample = Some((Instant::now(), was_in_combat));
+        }
+        self.combat_duration = Duration::ZERO;
     }
 }
 
@@ -257,5 +283,60 @@ mod tests {
 
         tracker.sample_position([3.0, 4.0, 0.0]);
         assert_eq!(tracker.distance_traveled_meters(), 0.0);
+    }
+
+    #[test]
+    fn first_combat_sample_adds_no_duration() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(true);
+        assert_eq!(tracker.combat_time_elapsed(), Duration::ZERO);
+    }
+
+    #[test]
+    fn two_in_combat_samples_accumulate_elapsed_time() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(true);
+        assert!(tracker.combat_time_elapsed() >= Duration::from_millis(20));
+        assert!(tracker.combat_time_elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn sample_after_out_of_combat_adds_no_duration() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(false);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(true);
+        assert_eq!(tracker.combat_time_elapsed(), Duration::ZERO);
+    }
+
+    #[test]
+    fn leaving_combat_stops_further_accumulation() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(false);
+        let after_leaving = tracker.combat_time_elapsed();
+        assert!(after_leaving >= Duration::from_millis(20));
+
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(false);
+        assert_eq!(tracker.combat_time_elapsed(), after_leaving);
+    }
+
+    #[test]
+    fn reset_mid_combat_zeroes_duration_without_leaking_pre_reset_gap() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(true);
+        assert!(tracker.combat_time_elapsed() >= Duration::from_millis(20));
+
+        tracker.reset();
+        assert_eq!(tracker.combat_time_elapsed(), Duration::ZERO);
+
+        tracker.sample_combat_state(true);
+        assert!(tracker.combat_time_elapsed() < Duration::from_millis(20));
     }
 }

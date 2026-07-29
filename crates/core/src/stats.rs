@@ -22,6 +22,7 @@ pub enum StatSource {
     Item(u32),
     SessionTimer,
     DistanceTraveled,
+    CombatTime,
 }
 
 /// A stat's browsing category in the Select Stats picker. Purely a UI
@@ -129,6 +130,7 @@ use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, S
 const CORE_STATS: &[StatDef] = &[
     StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: None },
     StatDef { id: "distance_traveled", display_name: "Distance Traveled", source: StatSource::DistanceTraveled, categories: &[], icon_url: None },
+    StatDef { id: "combat_time", display_name: "Combat Time", source: StatSource::CombatTime, categories: &[], icon_url: None },
     // WvW
     StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
     StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },
@@ -299,8 +301,8 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
             | StatSource::PvpCustomWins
             | StatSource::PvpCustomLosses => continue,
             // client-computed at render time (elapsed time / MumbleLink
-            // position), not from any snapshot field
-            StatSource::SessionTimer | StatSource::DistanceTraveled => continue,
+            // position / MumbleLink combat flag), not from any snapshot field
+            StatSource::SessionTimer | StatSource::DistanceTraveled | StatSource::CombatTime => continue,
         };
         values.insert(stat.id, value);
     }
@@ -508,9 +510,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_ten_stats() {
-        // 1 session timer + 1 distance traveled + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
-        assert_eq!(STAT_CATALOG.len(), 810);
+    fn catalog_has_eight_hundred_eleven_stats() {
+        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
+        assert_eq!(STAT_CATALOG.len(), 811);
     }
 
     #[test]

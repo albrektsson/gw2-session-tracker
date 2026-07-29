@@ -6,6 +6,12 @@ pub struct Config {
     pub api_key: Option<String>,
     #[serde(default = "default_selected_stats")]
     pub selected_stats: Vec<String>,
+    #[serde(default)]
+    pub wvw_selected_stats: Vec<String>,
+    #[serde(default)]
+    pub pvp_selected_stats: Vec<String>,
+    #[serde(default)]
+    pub pve_selected_stats: Vec<String>,
     #[serde(default = "default_background_opacity")]
     pub background_opacity: f32,
     #[serde(default = "default_text_scale")]
@@ -27,6 +33,9 @@ impl Default for Config {
         Self {
             api_key: None,
             selected_stats: default_selected_stats(),
+            wvw_selected_stats: Vec::new(),
+            pvp_selected_stats: Vec::new(),
+            pve_selected_stats: Vec::new(),
             background_opacity: default_background_opacity(),
             text_scale: default_text_scale(),
             bold_text: false,
@@ -96,6 +105,9 @@ mod tests {
         let config = Config {
             api_key: Some("ABC-123".to_string()),
             selected_stats: vec!["kdr".to_string(), "kills".to_string()],
+            wvw_selected_stats: vec!["wvw_rank".to_string()],
+            pvp_selected_stats: vec!["pvp_rank".to_string()],
+            pve_selected_stats: vec!["karma".to_string()],
             background_opacity: 0.75,
             text_scale: 1.5,
             bold_text: true,
@@ -124,6 +136,9 @@ mod tests {
         let config = load_config(dir.path());
         assert_eq!(config.api_key, Some("ABC".to_string()));
         assert_eq!(config.selected_stats, default_selected_stats());
+        assert!(config.wvw_selected_stats.is_empty());
+        assert!(config.pvp_selected_stats.is_empty());
+        assert!(config.pve_selected_stats.is_empty());
         assert_eq!(config.background_opacity, default_background_opacity());
         assert_eq!(config.text_scale, default_text_scale());
         assert!(!config.bold_text);

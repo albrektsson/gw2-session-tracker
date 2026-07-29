@@ -38,6 +38,9 @@ pub(crate) fn config_from_state(state: &AppState) -> Config {
     Config {
         api_key: state.api_key.clone(),
         selected_stats: state.selected_stats.clone(),
+        wvw_selected_stats: state.wvw_selected_stats.clone(),
+        pvp_selected_stats: state.pvp_selected_stats.clone(),
+        pve_selected_stats: state.pve_selected_stats.clone(),
         background_opacity: state.background_opacity,
         text_scale: state.text_scale,
         bold_text: state.bold_text,
