@@ -113,3 +113,11 @@ offers today, delivered as a native Nexus addon.
   narrate history — what an approach used to be, what was tried before, why
   a past attempt failed. That belongs in commit messages, not the file.
 - Commit messages are a single line — a summary title, no body.
+- Release notes are generated from the commit log by git-cliff
+  (`cliff.toml`, run from `.github/workflows/release.yml`) rather than
+  from PRs, since most commits land directly on `main`. Prefixing a
+  subject with a type — `feat:`, `fix:`, `docs:`, `refactor:`, `perf:`,
+  `chore:`/`ci:` — groups it under that heading in the next release's
+  notes instead of the catch-all "Other" section; see git-cliff's
+  [conventional_commits strategy](https://git-cliff.org/docs/configuration/git/#conventional_commits).
+  Not required — an unprefixed commit still shows up, just ungrouped.
