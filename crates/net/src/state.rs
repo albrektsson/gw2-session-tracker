@@ -167,7 +167,7 @@ fn run_poller<F>(
 
         let api_key = lock_recover(&shared).api_key.clone();
         if let Some(api_key) = api_key {
-            log::info!("polling GW2 API for WvW stats");
+            log::debug!("polling GW2 API for WvW stats");
             let result = fetch(&api_key, &shutdown);
             if shutdown.load(Ordering::SeqCst) {
                 // Shutting down mid-poll: `result` may just be the
@@ -179,7 +179,7 @@ fn run_poller<F>(
             let mut state = lock_recover(&shared);
             match result {
                 Ok(snapshot) => {
-                    log::info!(
+                    log::debug!(
                         "GW2 API poll succeeded (wvw_rank={}, {} achievements tracked, {} total deaths)",
                         snapshot.wvw_rank,
                         snapshot.achievements.len(),
@@ -196,7 +196,7 @@ fn run_poller<F>(
                 }
             }
         } else {
-            log::info!("no API key configured yet, skipping poll");
+            log::debug!("no API key configured yet, skipping poll");
         }
 
         let mut waited = Duration::ZERO;
