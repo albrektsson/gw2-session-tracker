@@ -11,7 +11,7 @@ value (the account's all-time total). It's a native-addon counterpart to
 the Blish HUD module `ecksofa.sessiontracker`
 ([`Taschenbuch/BlishHud-SessionTracker`](https://github.com/Taschenbuch/BlishHud-SessionTracker)),
 aiming to mirror as much of its functionality as possible. See
-[`AGENT.md`](./AGENT.md) for the full product vision.
+[`CONTEXT.md`](./CONTEXT.md) for the full product vision.
 
 ## Screenshots
 

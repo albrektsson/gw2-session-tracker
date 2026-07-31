@@ -1,4 +1,3 @@
 /target
 .claude/settings.local.json
-**.md
 .env
