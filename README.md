@@ -11,7 +11,39 @@ value (the account's all-time total). It's a native-addon counterpart to
 the Blish HUD module `ecksofa.sessiontracker`
 ([`Taschenbuch/BlishHud-SessionTracker`](https://github.com/Taschenbuch/BlishHud-SessionTracker)),
 aiming to mirror as much of its functionality as possible. See
-[`CONTEXT.md`](./CONTEXT.md) for the full product vision.
+[`CONTEXT.md`](./CONTEXT.md) for the project's glossary of terms.
+
+## Product vision
+
+- A **stats window** lists every stat the player has chosen to track, each
+  shown as a row with an icon, a name, a session value, and a lifetime
+  value.
+- A **stat picker** lets the player search/browse the full catalog of
+  trackable stats and choose which ones appear in the stats window, in
+  the order they want. Nothing is hardcoded to a fixed list — the catalog
+  is broad, and display is entirely user-configurable, mirroring
+  BlishHud-SessionTracker's "select stats" panel.
+- The addon needs a GW2 API key (entered once, stored locally) with
+  enough scopes to read the stat categories below.
+
+The trackable catalog spans every category BlishHud-SessionTracker covers:
+
+- **WvW**: kills, deaths, KDR, WvW rank, camps/towers/keeps/castles/
+  objectives captured & defended, dolyaks killed/escorted, supply spent on
+  repairs, WvW-specific currencies (badges of honor, skirmish claim
+  tickets, WvW tickets, etc.)
+- **PvP**: matches won/lost, rank, PvP-specific currencies
+- **General account**: currencies (gold, gems, karma, laurels, etc.),
+  achievement points, unlocked achievements, and other account-wide
+  achievement- or wallet-backed stats the API exposes
+- **Items**: specific items obtained through play (e.g. Heavy Loot Bags
+  from WvW, Memory of Battle) that have no achievement or currency behind
+  them, tracked by counting how many the player currently holds
+
+**Done** means functional parity with what BlishHud-SessionTracker offers
+today: enter an API key once, pick exactly the stats you care about from
+the full catalog, watch each one's session and lifetime value update live,
+and reset your session whenever you want a fresh baseline.
 
 ## Screenshots
 

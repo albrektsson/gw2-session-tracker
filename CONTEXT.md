@@ -1,103 +1,54 @@
-# Session Tracker: Project Vision
+# Session Tracker
 
-## What this is
+A Raidcore Nexus addon for Guild Wars 2 that tracks GW2 stats as both a
+Session value and a Lifetime value, mirroring the Blish HUD module
+`ecksofa.sessiontracker` (`Taschenbuch/BlishHud-SessionTracker`).
 
-Session Tracker is a Raidcore Nexus addon for Guild Wars 2 that shows a
-live window of the player's GW2 stats — both **session** counts (how much
-a stat has increased since a tracking session started) and **lifetime**
-totals (the account's all-time value) — side by side, for whichever stats
-the player chooses to track.
+## Language
 
-It is a native-addon counterpart to the Blish HUD module
-`ecksofa.sessiontracker` (maintained as `Taschenbuch/BlishHud-SessionTracker`),
-and mirrors as much of that module's functionality as possible: same
-idea, same underlying data source (the official GW2 API), running as a
-Nexus addon instead of inside Blish HUD. Matching BlishHud-SessionTracker's
-functionality is the actual target for this addon, not a stretch goal
-beyond some smaller MVP.
+**Stat**:
+A single trackable quantity — an id, a display name, an icon, and a Stat Source. The full set is the Stat Catalog.
+_Avoid_: Metric, field
 
-## The core experience
+**Stat Source**:
+Where a Stat's Lifetime Value comes from: a GW2 achievement id, a wallet currency id, an account/character field (e.g. WvW Rank, KDR), or an item id (summed across storage). Session Timer, Distance Traveled, and Combat Time are sourced from MumbleLink instead of the GW2 API.
 
-- A **stats window** lists every stat the player has chosen to track, each
-  shown as a row with an icon, a name, a session value, and a lifetime
-  value.
-- A **stat picker** lets the player search/browse the full catalog of
-  trackable stats and choose which ones appear in the stats window, in
-  the order they want. Nothing is hardcoded to a fixed list — the catalog
-  is broad, and display is entirely user-configurable, mirroring
-  BlishHud-SessionTracker's "select stats" panel.
-- **Session** values reset to zero at the start of a tracking session and
-  count up from there; **lifetime** values are always the player's true
-  all-time total as reported by the GW2 API.
-- The addon needs a GW2 API key (entered once, stored locally) with
-  enough scopes to read the stat categories below.
+**Lifetime Value**:
+A Stat's current value as reported by its Stat Source. For achievement- and Deaths-backed stats this only ever increases (see Regression Guard); for currency- and item-backed stats it is a live balance that can also decrease as the player spends, salvages, or deposits.
+_Avoid_: Total, all-time value
 
-## Stat catalog (MVP target breadth)
+**Session Value**:
+The delta between a Stat's current Lifetime Value and its value when the session started, except for ratio stats (e.g. KDR) which are computed from underlying session deltas rather than a lifetime-to-lifetime diff. Can be negative for currency/item stats if spending outpaces gain during the session.
+_Avoid_: Delta, gain
 
-The trackable catalog spans every category BlishHud-SessionTracker covers:
+**Session**:
+The tracking window a Session Value is measured against. Ends and restarts on reset (manual today; automatic triggers are planned — see GitHub issue #2).
+_Avoid_: Run, tracking period
 
-- **WvW**: kills, deaths, KDR, WvW rank, camps/towers/keeps/castles/
-  objectives captured & defended, dolyaks killed/escorted, supply spent on
-  repairs, WvW-specific currencies (badges of honor, skirmish claim
-  tickets, WvW tickets, etc.)
-- **PvP**: matches won/lost, rank, PvP-specific currencies
-- **General account**: currencies (gold, gems, karma, laurels, etc.),
-  achievement points, unlocked achievements, and other account-wide
-  achievement- or wallet-backed stats the API exposes
-- **Items**: specific items obtained through play (e.g. Heavy Loot Bags
-  from WvW, Memory of Battle) that have no achievement or currency behind
-  them, tracked by counting how many the player currently holds
+**Regression Guard**:
+The rule that a Lifetime Value drop is ignored (treated as a transient GW2 API glitch) for Stat Sources that should only ever increase — currently Achievement- and Deaths-backed stats (`is_regression_guarded`). Not applied to currency/item stats or ratios, which can legitimately drop.
+_Avoid_: Guard, clamp
 
-Every stat has an id, a display name, an icon, and one of four sources: a
-GW2 achievement id, a wallet currency id, an account/character field, or
-an item id.
+**Category**:
+A Stat's browsing grouping in the Select Stats picker — purely a UI concern, not a property of the Stat Source. A Stat can belong to more than one Category (e.g. a currency is tagged `Currency` and also `Wvw` if WvW-specific).
+_Avoid_: Tag, group
 
-## How it works, conceptually
+**Supercategory**:
+A display-only grouping of Categories in the picker (General, Competitive, PvE, Material Storage). Not attached to individual Stats.
+_Avoid_: Section, tab group
 
-- Stats are **not** derived from real-time combat parsing (no ArcDPS
-  dependency) — they come from polling the official GW2 API
-  (achievements, wallet, account, characters, PvP stats) with the
-  player's API key, the same mechanism BlishHud-SessionTracker uses. Some
-  values lag behind real-time play by the API's own propagation delay,
-  same as the reference module.
-- **Lifetime** for most stats is simply the current value the API
-  reports. Achievement- and deaths-backed stats only ever go up (a lower
-  value from a later poll is treated as a transient API glitch and
-  ignored), but currency-backed stats are a live wallet balance, not a
-  strict all-time total: spending gold, crafting with mystic coins, buying
-  with badges of honor, etc. all make the value go *down*, and a session
-  that includes a spend will show a negative session delta for that stat.
-- **Item-based stats have no achievement or currency to read**, so their
-  lifetime value is computed by summing how many of that item id the
-  player currently holds: across every character's bags, the account
-  bank, shared inventory slots, and material storage (material storage is
-  a separate API resource with no bag/slot structure of its own). Like
-  currency-backed stats, this count can go *down* as well as up — the
-  player can spend, salvage, or deposit the item — so it behaves as a live
-  possession count, not a strict all-time total.
-- **Session** for a stat is the delta between its current lifetime value
-  and its value when the session started — except where a raw
-  diff-of-values would be meaningless (a ratio like KDR), which is instead
-  computed from its underlying session deltas (session kills ÷ session
-  deaths, not lifetime-KDR-now minus lifetime-KDR-then). The same delta
-  math applies to currency- and item-based stats; it just isn't guaranteed
-  to be a pure "amount gained," since the player may also spend some
-  mid-session — a session that spends more than it earns shows as a
-  negative value.
-- A session can be reset (manually, and/or automatically on a trigger like
-  re-entering WvW or a game restart) so the player can measure "how much
-  did I get done tonight" or "since I logged in today" however they like.
+**Stat List**:
+One of four independent, ordered selections of Stats a player has chosen to display — Global, WvW, PvP, or PvE (`StatListKind`). Each has its own selection and order, persisted separately. Assignment to a list is entirely manual; nothing filters which Stats are "allowed" in which list.
+_Avoid_: Selection, layout
 
-## What "done" looks like
+**Map Group**:
+The coarse-grained classification of the player's current map, derived from MumbleLink's map type id (`map_group_for`): Wvw, Pvp, or Pve (open world, fractals, raids, strikes, and other instances all fold into Pve). `None` for character creation/tutorial/unrecognized ids. Determines which Stat List (beyond Global) renders in the main window.
+_Avoid_: Mode, map type
 
-A player can:
-1. Enter their API key once.
-2. Open a settings/stat-picker panel, search the full catalog (WvW, PvP,
-   currencies, general account, items), and select exactly the stats they
-   care about, in whatever order they want.
-3. Open the stats window and see each selected stat's session and
-   lifetime value update automatically as they play.
-4. Reset their session whenever they want a fresh baseline.
+**Main Window**:
+The always-on HUD showing one row per Stat in the active Stat Lists (Global's Stats first, then the Map Group's list, skipping duplicates).
+_Avoid_: HUD, overlay
 
-That's the MVP: functional parity with what BlishHud-SessionTracker
-offers today, delivered as a native Nexus addon.
+**Stat Catalog**:
+The complete set of Stats the addon knows about, spanning WvW, PvP, general account currencies/achievements, and items (including Material Storage). Breadth target is full parity with BlishHud-SessionTracker.
+_Avoid_: Stat list (see Stat List, which is a different concept — a player's selection, not the full catalog)
