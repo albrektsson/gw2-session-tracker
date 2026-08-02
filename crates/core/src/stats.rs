@@ -510,9 +510,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_eleven_stats() {
-        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 679 material storage items
-        assert_eq!(STAT_CATALOG.len(), 811);
+    fn catalog_has_eight_hundred_ten_stats() {
+        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 678 material storage items
+        assert_eq!(STAT_CATALOG.len(), 810);
     }
 
     #[test]
@@ -525,13 +525,13 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_seven_hundred_twelve_items() {
-        // 33 non-material-storage items + 679 material storage items
+    fn catalog_has_seven_hundred_eleven_items() {
+        // 33 non-material-storage items + 678 material storage items
         let count = STAT_CATALOG
             .iter()
             .filter(|s| matches!(s.source, StatSource::Item(_)))
             .count();
-        assert_eq!(count, 712);
+        assert_eq!(count, 711);
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         let expected: &[(Category, usize)] = &[
             (Category::BasicCraftingMaterials, 79),
             (Category::IntermediateCraftingMaterials, 65),
-            (Category::AdvancedCraftingMaterials, 157),
+            (Category::AdvancedCraftingMaterials, 156),
             (Category::AscendedMaterials, 58),
             (Category::GemstonesAndJewels, 60),
             (Category::CookingMaterials, 135),
