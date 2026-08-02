@@ -125,7 +125,9 @@ pub fn pvp_rank_icon_url(rank: u32) -> &'static str {
     pvp_rank_tier(rank).icon_url
 }
 
-use Category::{Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw};
+use Category::{
+    AdvancedCraftingMaterials, Currency as Cur, Festival, Fractal, Misc, OpenWorld, Pvp, Raid, Strike, Wvw,
+};
 
 const CORE_STATS: &[StatDef] = &[
     StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: None },
@@ -232,7 +234,7 @@ const CORE_STATS: &[StatDef] = &[
     StatDef { id: "aether_rich_sap", display_name: "Aether-Rich Sap", source: StatSource::Currency(83), categories: &[Cur], icon_url: Some("https://render.guildwars2.com/file/79F23C52AF0AA29A976877285FF904BCA2D122FE/3710050.png") },
     // material storage), not lifetime totals, hence "(current)" in the name.
     StatDef { id: "heavy_loot_bag", display_name: "Heavy Loot Bag (current)", source: StatSource::Item(8920), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/EBC5CEC199D1E51B02756A1C796A65E9D24F04B5/63171.png") },
-    StatDef { id: "memory_of_battle", display_name: "Memory of Battle (current)", source: StatSource::Item(71581), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/E4D0455D2EFDB0DFC008F4564B38D6545901A05B/1206833.png") },
+    StatDef { id: "memory_of_battle", display_name: "Memory of Battle (current)", source: StatSource::Item(71581), categories: &[Wvw, AdvancedCraftingMaterials], icon_url: Some("https://render.guildwars2.com/file/E4D0455D2EFDB0DFC008F4564B38D6545901A05B/1206833.png") },
     StatDef { id: "emblem_of_the_avenger", display_name: "Emblem of the Avenger (current)", source: StatSource::Item(93075), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/C756AF2212663BAAB926E1EE064CFE7E2FF0EE97/2270824.png") },
     StatDef { id: "emblem_of_the_conqueror", display_name: "Emblem of the Conqueror (current)", source: StatSource::Item(93146), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/D548CB0A04FA28BC76A91A6D8045E31A06DD417B/2270825.png") },
     StatDef { id: "grandmaster_mark_shard", display_name: "Grandmaster Mark Shard (current)", source: StatSource::Item(87557), categories: &[Wvw], icon_url: Some("https://render.guildwars2.com/file/6746AD0BC7EEB85962D9D05B6B7E59ECCE7C726D/1986161.png") },
@@ -246,7 +248,7 @@ const CORE_STATS: &[StatDef] = &[
     StatDef { id: "essence_of_luck_rare", display_name: "Essence of Luck, Rare (current)", source: StatSource::Item(45177), categories: &[Misc], icon_url: Some("https://render.guildwars2.com/file/4FA2D6CEF9039B402F2695CF2E740B4CF6F50753/631150.png") },
     StatDef { id: "essence_of_luck_exotic", display_name: "Essence of Luck, Exotic (current)", source: StatSource::Item(45178), categories: &[Misc], icon_url: Some("https://render.guildwars2.com/file/DAB46301D2175B2CAAC4BACBA02F6A0A2F1DBEB8/631151.png") },
     StatDef { id: "essence_of_luck_legendary", display_name: "Essence of Luck, Legendary (current)", source: StatSource::Item(45179), categories: &[Misc], icon_url: Some("https://render.guildwars2.com/file/DB6E0EFF01587F1C44DD131DCBB34BA7D27CC7EF/631152.png") },
-    StatDef { id: "mystic_coin", display_name: "Mystic Coin (current)", source: StatSource::Item(19976), categories: &[Fractal, Raid], icon_url: Some("https://render.guildwars2.com/file/AB0317DF5B0E1BA47436A5420248660765154C08/62864.png") },
+    StatDef { id: "mystic_coin", display_name: "Mystic Coin (current)", source: StatSource::Item(19976), categories: &[Fractal, Raid, AdvancedCraftingMaterials], icon_url: Some("https://render.guildwars2.com/file/AB0317DF5B0E1BA47436A5420248660765154C08/62864.png") },
     StatDef { id: "fractal_encryption", display_name: "Fractal Encryption (current)", source: StatSource::Item(75919), categories: &[Fractal], icon_url: Some("https://render.guildwars2.com/file/0FE0E9AA9080D07A2A0EE3141A1FEBBC0DC5F819/1200196.png") },
     StatDef { id: "coffer_of_the_dragon_ball_champion", display_name: "Coffer of the Dragon Ball Champion (current)", source: StatSource::Item(68617), categories: &[Festival], icon_url: Some("https://render.guildwars2.com/file/08B96751629476BBF8D20B524803BE6914936B4D/947640.png") },
     StatDef { id: "little_lucky_envelope", display_name: "Little Lucky Envelope (current)", source: StatSource::Item(68645), categories: &[Festival], icon_url: Some("https://render.guildwars2.com/file/4D0D1A0832670F033701CC65AA34E4AE6047E406/947656.png") },
@@ -510,9 +512,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_ten_stats() {
-        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 678 material storage items
-        assert_eq!(STAT_CATALOG.len(), 810);
+    fn catalog_has_eight_hundred_five_stats() {
+        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 673 material storage items
+        assert_eq!(STAT_CATALOG.len(), 805);
     }
 
     #[test]
@@ -525,13 +527,13 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_seven_hundred_eleven_items() {
-        // 33 non-material-storage items + 678 material storage items
+    fn catalog_has_seven_hundred_six_items() {
+        // 33 non-material-storage items + 673 material storage items
         let count = STAT_CATALOG
             .iter()
             .filter(|s| matches!(s.source, StatSource::Item(_)))
             .count();
-        assert_eq!(count, 711);
+        assert_eq!(count, 706);
     }
 
     #[test]
@@ -539,7 +541,7 @@ mod tests {
         let expected: &[(Category, usize)] = &[
             (Category::BasicCraftingMaterials, 79),
             (Category::IntermediateCraftingMaterials, 65),
-            (Category::AdvancedCraftingMaterials, 156),
+            (Category::AdvancedCraftingMaterials, 153),
             (Category::AscendedMaterials, 58),
             (Category::GemstonesAndJewels, 60),
             (Category::CookingMaterials, 135),
