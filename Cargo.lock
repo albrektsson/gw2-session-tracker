@@ -469,7 +469,7 @@ dependencies = [
 [[package]]
 name = "nexus"
 version = "0.12.0"
-source = "git+https://github.com/Zerthox/nexus-rs#6b62e04a336458ef732bf96947a9f0283f54ad09"
+source = "git+https://github.com/Zerthox/nexus-rs#51bff5ab38ad11332316448b452ece1b773018cd"
 dependencies = [
  "arcdps-imgui",
  "bitflags 2.13.1",
@@ -485,7 +485,7 @@ dependencies = [
 [[package]]
 name = "nexus_codegen"
 version = "0.3.2"
-source = "git+https://github.com/Zerthox/nexus-rs#6b62e04a336458ef732bf96947a9f0283f54ad09"
+source = "git+https://github.com/Zerthox/nexus-rs#51bff5ab38ad11332316448b452ece1b773018cd"
 dependencies = [
  "cfg-if",
  "env_filter 0.1.4",
