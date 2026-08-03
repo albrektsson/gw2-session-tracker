@@ -5,7 +5,7 @@ use std::{
     time::Instant,
 };
 use session_tracker_core::{
-    format::{format_coin, format_distance, format_duration, format_thousands},
+    format::{format_coin, format_distance, format_duration, format_ratio, format_thousands},
     map_context::MapGroup,
     stats::{pvp_rank_tier, resolve_selected_stats},
     sync::lock_recover,
@@ -94,6 +94,8 @@ fn render_embedded_icon(identifier: &str, bytes: &'static [u8], icon_size: f32, 
 fn format_value(id: &str, value: f64) -> String {
     if id == "gold" {
         format_coin(value)
+    } else if id == "kdr" || id == "pvp_kdr" {
+        format_ratio(value)
     } else {
         format_thousands(value)
     }

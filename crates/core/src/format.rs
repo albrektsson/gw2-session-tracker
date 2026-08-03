@@ -16,6 +16,14 @@ pub fn format_thousands(value: f64) -> String {
     format!("{sign}{}", grouped.chars().rev().collect::<String>())
 }
 
+/// Formats a ratio stat like KDR to 2 decimal places, e.g. `0.5` -> `"0.50"`.
+/// Unlike `format_thousands`, this does not round away the fractional part
+/// that a rounding-to-whole-number would collapse (e.g. 1 kill / 2 deaths
+/// rounding to a misleading "1").
+pub fn format_ratio(value: f64) -> String {
+    format!("{value:.2}")
+}
+
 /// Formats a raw copper amount (the unit GW2's API reports the "Coin"
 /// wallet currency in) as `"Xg Ys Zc"`, e.g. `4722524.0` -> `"472g 25s
 /// 24c"`. 100 copper = 1 silver, 100 silver = 1 gold (so 10000 copper =
@@ -70,6 +78,16 @@ mod tests {
     #[test]
     fn formats_large_multi_group_value() {
         assert_eq!(format_thousands(1234567.0), "1,234,567");
+    }
+
+    #[test]
+    fn format_ratio_keeps_fractional_part() {
+        assert_eq!(format_ratio(0.5), "0.50");
+    }
+
+    #[test]
+    fn format_ratio_rounds_to_two_decimals() {
+        assert_eq!(format_ratio(1.0 / 3.0), "0.33");
     }
 
     #[test]
