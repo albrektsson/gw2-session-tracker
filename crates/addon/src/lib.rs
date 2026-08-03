@@ -58,9 +58,12 @@ nexus::export! {
 fn load() {
     log::info!("Session Tracker addon loading");
 
-    let Some(addon_dir) = get_addon_dir("session_tracker") else {
-        log::error!("failed to resolve addon directory; Session Tracker will not load");
-        return;
+    let addon_dir = match get_addon_dir("session_tracker") {
+        Ok(dir) => dir,
+        Err(err) => {
+            log::error!("failed to resolve addon directory: {err}; Session Tracker will not load");
+            return;
+        }
     };
     if let Err(err) = std::fs::create_dir_all(&addon_dir) {
         log::error!("failed to create addon dir {}: {err}; Session Tracker will not load", addon_dir.display());
