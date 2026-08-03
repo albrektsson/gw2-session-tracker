@@ -11,8 +11,10 @@ use session_tracker_core::{
 use session_tracker_net::state::{AppState, PollStatus, StatListKind};
 
 use super::settings_window::config_from_state;
+use super::stat_icon::render_stat_icon;
 
 const DRAG_DROP_PAYLOAD: &str = "SESSION_TRACKER_STAT_ROW";
+const ICON_SIZE: f32 = 16.0;
 
 enum PendingMove {
     Step { id: &'static str, up: bool },
@@ -31,6 +33,7 @@ pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_di
 
 fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path, kind: StatListKind) {
     let label = kind.label();
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
     let mut state = lock_recover(shared);
     let selected = resolve_selected_stats(state.stat_list(kind));
     if selected.is_empty() {
@@ -49,6 +52,7 @@ fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
         }
         ui.same_line();
 
+        render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
         Selectable::new(format!("{}##{label}_drag_{}", stat.display_name, stat.id)).build(ui);
 
         if DragDropSource::new(DRAG_DROP_PAYLOAD).begin_payload(ui, stat.id).is_some() {

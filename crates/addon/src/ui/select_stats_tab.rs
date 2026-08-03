@@ -15,6 +15,7 @@ use session_tracker_core::{
 use session_tracker_net::state::{AppState, StatListKind};
 
 use super::settings_window::config_from_state;
+use super::stat_icon::render_stat_icon;
 
 thread_local! {
     static SEARCH_FILTER: RefCell<String> = const { RefCell::new(String::new()) };
@@ -24,6 +25,8 @@ thread_local! {
 // activity type) are pinned above the category tree instead of inside it -
 // `stats_in_category` below would never match them otherwise.
 const PINNED_STAT_IDS: &[&str] = &["session_timer", "distance_traveled", "combat_time"];
+
+const ICON_SIZE: f32 = 16.0;
 
 fn persist(state: &AppState, addon_dir: &Path) {
     let config = config_from_state(state);
@@ -76,6 +79,7 @@ pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
 
 fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path, kind: StatListKind) {
     let label = kind.label();
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
     SEARCH_FILTER.with(|filter| {
         let mut query = filter.borrow_mut();
         ui.input_text("##stat_search", &mut query)
@@ -105,6 +109,7 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
                 && (needle.is_empty() || stat.display_name.to_lowercase().contains(&needle))
             {
                 any_pinned_shown = true;
+                render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
                 let mut checked = state.stat_list(kind).iter().any(|sid| sid == stat.id);
                 if ui.checkbox(format!("{}##{label}_{}", stat.display_name, stat.id), &mut checked) {
                     toggle_stat(state.stat_list_mut(kind), stat.id);
@@ -163,6 +168,7 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
                 }
 
                 for stat in &stats {
+                    render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
                     let mut checked = state.stat_list(kind).iter().any(|id| id == stat.id);
                     // "##label_name_id" disambiguates the widget id: the
                     // same stat can render in several categories (e.g. a

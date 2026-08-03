@@ -3,3 +3,4 @@ mod icons;
 pub mod main_window;
 mod select_stats_tab;
 pub mod settings_window;
+mod stat_icon;
