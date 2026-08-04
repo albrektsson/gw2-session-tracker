@@ -1,16 +1,8 @@
 use nexus::imgui::{Direction, DragDropFlags, DragDropSource, DragDropTarget, Selectable, Ui};
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
-use session_tracker_core::{
-    config::save_config,
-    stats::{move_stat_down, move_stat_to, move_stat_up, resolve_selected_stats},
-    sync::lock_recover,
-};
-use session_tracker_net::state::{AppState, PollStatus, StatListKind};
+use session_tracker_core::stat_list::resolve_selected_stats;
+use session_tracker_net::state::StatListKind;
 
-use super::settings_window::config_from_state;
+use crate::app_handle::AppHandle;
 use super::stat_icon::render_stat_icon;
 
 const DRAG_DROP_PAYLOAD: &str = "SESSION_TRACKER_STAT_ROW";
@@ -21,21 +13,21 @@ enum PendingMove {
     To { id: &'static str, before_id: &'static str },
 }
 
-pub fn render_arrange_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
+pub fn render_arrange_stats_tab(ui: &Ui, app: &AppHandle) {
     if let Some(_tabs) = ui.tab_bar("arrange-list-scope") {
         for kind in StatListKind::ALL {
             if let Some(_tab) = ui.tab_item(kind.label()) {
-                render_arrange_stats_editor(ui, shared, addon_dir, kind);
+                render_arrange_stats_editor(ui, app, kind);
             }
         }
     }
 }
 
-fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path, kind: StatListKind) {
+fn render_arrange_stats_editor(ui: &Ui, app: &AppHandle, kind: StatListKind) {
     let label = kind.label();
-    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
-    let mut state = lock_recover(shared);
-    let selected = resolve_selected_stats(state.stat_list(kind));
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(app.addon_dir());
+    let selected_ids = app.lock().stat_list(kind).clone();
+    let selected = resolve_selected_stats(&selected_ids);
     if selected.is_empty() {
         ui.text("No stats selected. Use the Select Stats tab to pick some first.");
         return;
@@ -52,7 +44,7 @@ fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
         }
         ui.same_line();
 
-        render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
+        render_stat_icon(stat, &app.lock(), &cache_dir, ICON_SIZE, ui);
         Selectable::new(format!("{}##{label}_drag_{}", stat.display_name, stat.id)).build(ui);
 
         if DragDropSource::new(DRAG_DROP_PAYLOAD).begin_payload(ui, stat.id).is_some() {
@@ -69,17 +61,10 @@ fn render_arrange_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir
     }
 
     if let Some(pending) = pending_move {
-        let list = state.stat_list_mut(kind);
         match pending {
-            PendingMove::Step { id, up: true } => move_stat_up(list, id),
-            PendingMove::Step { id, up: false } => move_stat_down(list, id),
-            PendingMove::To { id, before_id } => move_stat_to(list, id, before_id),
-        }
-
-        let config = config_from_state(&state);
-        if let Err(err) = save_config(addon_dir, &config) {
-            log::warn!("failed to save session tracker config: {err}");
-            state.status = PollStatus::Error(format!("failed to save config: {err}"));
+            PendingMove::Step { id, up: true } => app.move_stat_up(kind, id),
+            PendingMove::Step { id, up: false } => app.move_stat_down(kind, id),
+            PendingMove::To { id, before_id } => app.move_stat_to(kind, id, before_id),
         }
     }
 }

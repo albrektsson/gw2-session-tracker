@@ -51,6 +51,8 @@ pub struct AppState {
     pub bold_text: bool,
     pub text_color: [f32; 4],
     pub icon_color: [f32; 4],
+    pub show_settings: bool,
+    pub show_main: bool,
     pub session: SessionTracker,
     pub status: PollStatus,
     pub last_updated: Option<Instant>,
@@ -72,6 +74,8 @@ impl AppState {
         bold_text: bool,
         text_color: [f32; 4],
         icon_color: [f32; 4],
+        show_settings: bool,
+        show_main: bool,
     ) -> Self {
         let status = if api_key.is_some() {
             PollStatus::Pending
@@ -89,6 +93,8 @@ impl AppState {
             bold_text,
             text_color,
             icon_color,
+            show_settings,
+            show_main,
             session: SessionTracker::new(),
             status,
             last_updated: None,
@@ -232,6 +238,8 @@ mod tests {
             false,
             [1.0, 0.85, 0.3, 1.0],
             [1.0, 0.85, 0.3, 1.0],
+            false,
+            false,
         );
 
         assert_eq!(state.stat_list(StatListKind::Global), &vec!["kills".to_string()]);
@@ -245,7 +253,7 @@ mod tests {
 
     #[test]
     fn poller_updates_state_and_stops_on_shutdown() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
+        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -285,19 +293,19 @@ mod tests {
 
     #[test]
     fn new_state_with_api_key_starts_pending_not_awaiting_api_key() {
-        let state = AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0]);
+        let state = AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false);
         assert!(matches!(state.status, PollStatus::Pending));
     }
 
     #[test]
     fn new_state_without_api_key_starts_awaiting_api_key() {
-        let state = AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0]);
+        let state = AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false);
         assert!(matches!(state.status, PollStatus::AwaitingApiKey));
     }
 
     #[test]
     fn poller_without_api_key_never_calls_fetch() {
-        let shared = Arc::new(Mutex::new(AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
+        let shared = Arc::new(Mutex::new(AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -331,7 +339,7 @@ mod tests {
 
     #[test]
     fn poller_records_fetch_errors_without_crashing() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
+        let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
         let fetch = |_key: &str, _shutdown: &AtomicBool| Err("401 Unauthorized".to_string());
 
         let mut poller = Poller::spawn(shared.clone(), Duration::from_millis(20), fetch);
@@ -348,7 +356,7 @@ mod tests {
         // cancellation between several sequential steps, rather than
         // instantly - `stop()` must not need to wait for the whole
         // simulated call to finish, just for it to notice `shutdown`.
-        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0])));
+        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
         let started = Arc::new(AtomicUsize::new(0));
         let fetch_started = started.clone();
 

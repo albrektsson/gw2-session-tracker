@@ -1,4 +1,4 @@
-use crate::stats::Category::*;
+use crate::category::Category::*;
 use crate::stats::{StatDef, StatSource};
 
 /// Generated from the live GW2 API (/v2/materials + /v2/items) — one

@@ -1,35 +1,24 @@
 use nexus::imgui::Ui;
-use std::{
-    path::Path,
-    sync::{atomic::AtomicBool, Arc, Mutex},
-    time::Instant,
-};
+use std::time::Instant;
 use session_tracker_core::{
     format::{format_coin, format_distance, format_duration, format_ratio, format_thousands},
     map_context::MapGroup,
-    stats::resolve_selected_stats,
-    sync::lock_recover,
+    stat_list::resolve_selected_stats,
+    stats::ratio_with_fallback,
 };
 use session_tracker_net::state::{AppState, PollStatus};
 
+use crate::app_handle::AppHandle;
 use super::stat_icon::render_stat_icon;
-
-pub static SHOW_MAIN: AtomicBool = AtomicBool::new(false);
 
 const ICON_SIZE: f32 = 18.0;
 const STALE_DATA_THRESHOLD_SECS: u64 = 5 * 60;
 
-/// Session KDR from the session kills/deaths deltas, falling back to raw
-/// kills when there have been no deaths this session (mirrors the
-/// lifetime KDR fallback in `compute_lifetime_values`).
+/// Session KDR from the session kills/deaths deltas.
 fn session_kdr(state: &AppState, kills_id: &str) -> f64 {
     let session_kills = state.session.session_value(kills_id);
     let session_deaths = state.session.session_value("deaths");
-    if session_deaths > 0.0 {
-        session_kills / session_deaths
-    } else {
-        session_kills
-    }
+    ratio_with_fallback(session_kills, session_deaths)
 }
 
 /// Draws `text` at the cursor, optionally faked-bold by drawing it twice
@@ -61,9 +50,9 @@ fn draw_text(ui: &Ui, color: [f32; 4], text: &str, bold: bool) {
     ui.dummy(ui.calc_text_size(text));
 }
 
-pub fn render_main_window(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
-    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
-    let state = lock_recover(shared);
+pub fn render_main_window(ui: &Ui, app: &AppHandle) {
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(app.addon_dir());
+    let state = app.lock();
     nexus::imgui::Window::new("Session Tracker")
         .bg_alpha(state.background_opacity)
         .no_decoration()

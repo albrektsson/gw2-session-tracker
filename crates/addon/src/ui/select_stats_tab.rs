@@ -1,20 +1,10 @@
 use nexus::imgui::{TreeNodeFlags, Ui};
-use std::{
-    cell::RefCell,
-    path::Path,
-    sync::{Arc, Mutex},
-};
-use session_tracker_core::{
-    config::save_config,
-    stats::{
-        select_all, select_ids, toggle_stat, unselect_all, unselect_ids, Category, StatDef,
-        STAT_CATALOG, SUPERCATEGORIES,
-    },
-    sync::lock_recover,
-};
-use session_tracker_net::state::{AppState, StatListKind};
+use std::cell::RefCell;
+use session_tracker_core::category::{Category, SUPERCATEGORIES};
+use session_tracker_core::stats::{StatDef, STAT_CATALOG};
+use session_tracker_net::state::StatListKind;
 
-use super::settings_window::config_from_state;
+use crate::app_handle::AppHandle;
 use super::stat_icon::render_stat_icon;
 
 thread_local! {
@@ -27,13 +17,6 @@ thread_local! {
 const PINNED_STAT_IDS: &[&str] = &["session_timer", "distance_traveled", "combat_time"];
 
 const ICON_SIZE: f32 = 16.0;
-
-fn persist(state: &AppState, addon_dir: &Path) {
-    let config = config_from_state(state);
-    if let Err(err) = save_config(addon_dir, &config) {
-        log::warn!("failed to save session tracker config: {err}");
-    }
-}
 
 fn category_display_name(category: Category) -> &'static str {
     match category {
@@ -67,19 +50,19 @@ fn stats_in_category(category: Category, needle: &str) -> Vec<&'static StatDef> 
         .collect()
 }
 
-pub fn render_select_stats_tab(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path) {
+pub fn render_select_stats_tab(ui: &Ui, app: &AppHandle) {
     if let Some(_tabs) = ui.tab_bar("stat-list-scope") {
         for kind in StatListKind::ALL {
             if let Some(_tab) = ui.tab_item(kind.label()) {
-                render_select_stats_editor(ui, shared, addon_dir, kind);
+                render_select_stats_editor(ui, app, kind);
             }
         }
     }
 }
 
-fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir: &Path, kind: StatListKind) {
+fn render_select_stats_editor(ui: &Ui, app: &AppHandle, kind: StatListKind) {
     let label = kind.label();
-    let cache_dir = session_tracker_net::icon_cache::cache_dir(addon_dir);
+    let cache_dir = session_tracker_net::icon_cache::cache_dir(app.addon_dir());
     SEARCH_FILTER.with(|filter| {
         let mut query = filter.borrow_mut();
         ui.input_text("##stat_search", &mut query)
@@ -87,21 +70,16 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
             .build();
 
         if ui.button(format!("Select all##{label}_all_select")) {
-            let mut state = lock_recover(shared);
-            select_all(state.stat_list_mut(kind));
-            persist(&state, addon_dir);
+            app.select_all(kind);
         }
         ui.same_line();
         if ui.button(format!("Unselect all##{label}_all_unselect")) {
-            let mut state = lock_recover(shared);
-            unselect_all(state.stat_list_mut(kind));
-            persist(&state, addon_dir);
+            app.unselect_all(kind);
         }
 
         ui.separator();
 
         let needle = query.to_lowercase();
-        let mut state = lock_recover(shared);
 
         let mut any_pinned_shown = false;
         for &id in PINNED_STAT_IDS {
@@ -109,11 +87,10 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
                 && (needle.is_empty() || stat.display_name.to_lowercase().contains(&needle))
             {
                 any_pinned_shown = true;
-                render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
-                let mut checked = state.stat_list(kind).iter().any(|sid| sid == stat.id);
+                render_stat_icon(stat, &app.lock(), &cache_dir, ICON_SIZE, ui);
+                let mut checked = app.lock().stat_list(kind).iter().any(|sid| sid == stat.id);
                 if ui.checkbox(format!("{}##{label}_{}", stat.display_name, stat.id), &mut checked) {
-                    toggle_stat(state.stat_list_mut(kind), stat.id);
-                    persist(&state, addon_dir);
+                    app.toggle_stat(kind, stat.id);
                 }
             }
         }
@@ -136,7 +113,7 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
                 let name = category_display_name(category);
                 let selected_count = stats
                     .iter()
-                    .filter(|s| state.stat_list(kind).iter().any(|id| id == s.id))
+                    .filter(|s| app.lock().stat_list(kind).iter().any(|id| id == s.id))
                     .count();
                 // "###name_label" pins the widget's identity to the stable
                 // category name plus which list is being edited, decoupled
@@ -158,26 +135,23 @@ fn render_select_stats_editor(ui: &Ui, shared: &Arc<Mutex<AppState>>, addon_dir:
 
                 let ids: Vec<&str> = stats.iter().map(|s| s.id).collect();
                 if ui.button(format!("Select all##{label}_{name}_select")) {
-                    select_ids(state.stat_list_mut(kind), &ids);
-                    persist(&state, addon_dir);
+                    app.select_ids(kind, &ids);
                 }
                 ui.same_line();
                 if ui.button(format!("Unselect all##{label}_{name}_unselect")) {
-                    unselect_ids(state.stat_list_mut(kind), &ids);
-                    persist(&state, addon_dir);
+                    app.unselect_ids(kind, &ids);
                 }
 
                 for stat in &stats {
-                    render_stat_icon(stat, &state, &cache_dir, ICON_SIZE, ui);
-                    let mut checked = state.stat_list(kind).iter().any(|id| id == stat.id);
+                    render_stat_icon(stat, &app.lock(), &cache_dir, ICON_SIZE, ui);
+                    let mut checked = app.lock().stat_list(kind).iter().any(|id| id == stat.id);
                     // "##label_name_id" disambiguates the widget id: the
                     // same stat can render in several categories (e.g. a
                     // currency in both "Currencies" and "WvW") and in
                     // several list tabs, and ImGui derives widget identity
                     // from the label text by default.
                     if ui.checkbox(format!("{}##{label}_{name}_{}", stat.display_name, stat.id), &mut checked) {
-                        toggle_stat(state.stat_list_mut(kind), stat.id);
-                        persist(&state, addon_dir);
+                        app.toggle_stat(kind, stat.id);
                     }
                 }
 

@@ -18,11 +18,15 @@ A Stat's current value as reported by its Stat Source. For achievement- and Deat
 _Avoid_: Total, all-time value
 
 **Session Value**:
-The delta between a Stat's current Lifetime Value and its value when the session started, except for ratio stats (e.g. KDR) which are computed from underlying session deltas rather than a lifetime-to-lifetime diff. Can be negative for currency/item stats if spending outpaces gain during the session.
+The delta between a Stat's current Lifetime Value and its value when the session started, except for Ratio Stats (e.g. KDR) which are computed from underlying session deltas rather than a lifetime-to-lifetime diff. Can be negative for currency/item stats if spending outpaces gain during the session.
 _Avoid_: Delta, gain
 
+**Ratio Stat**:
+A Stat whose value is one Stat divided by another (e.g. KDR = kills / deaths) rather than read straight from a Stat Source. Falls back to the raw numerator when the denominator is zero (`ratio_with_fallback`) instead of dividing by zero — applies to both its Lifetime Value and its Session Value.
+_Avoid_: Computed stat, derived stat
+
 **Session**:
-The tracking window a Session Value is measured against. Ends and restarts on reset (manual today; automatic triggers are planned — see GitHub issue #2).
+The tracking window a Session Value is measured against. Ends and restarts on reset, triggered manually only — automatic triggers (e.g. on map change) were considered and rejected as unnecessary.
 _Avoid_: Run, tracking period
 
 **Regression Guard**:
