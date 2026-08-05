@@ -1,0 +1,398 @@
+<!--
+PROTOTYPE — throwaway, not production code. Answers issue #22
+(Design the per-stat hover tooltip layout), part of the wayfinder map
+at issue #7. Also published as a Claude artifact for interactive review:
+https://claude.ai/code/artifact/ba17ee94-eb7b-4c75-830d-3bb418b118f6
+
+Resolved: layout follows Variant A's structure (icon+name header, no
+description line, "Lifetime"/"Session" sections, inapplicable rows
+omitted) with Variant B's capped history (10 most recent History
+Snapshots, no scroll) instead of A's unbounded list. See issue #22's
+resolution comment for the full decision.
+-->
+<title>Stat tooltip — 3 layouts</title>
+<style>
+  :root{
+    --bg-hud: #14110d;
+    --bg-hud-2: #221b13;
+    --panel: rgba(10, 9, 7, 0.94);
+    --panel-border: #4a3d28;
+    --gold: #ffd166;
+    --gold-dim: #c9a24d;
+    --green: #8fdb6b;
+    --white: #e9e4d8;
+    --muted: #9c9384;
+    --divider: #3a3226;
+    --chrome-bg: #1c1a17;
+    --chrome-fg: #cfc7b6;
+    --chrome-accent: #ffd166;
+    --page-bg: #0b0a08;
+  }
+  :root[data-theme="light"]{
+    --page-bg: #e7e2d6;
+    --chrome-bg: #f1ede2;
+    --chrome-fg: #3a3226;
+    --chrome-accent: #a3781f;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --page-bg: #e7e2d6;
+      --chrome-bg: #f1ede2;
+      --chrome-fg: #3a3226;
+      --chrome-accent: #a3781f;
+    }
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% 15%, rgba(255,209,102,0.05), transparent 45%),
+      linear-gradient(160deg, var(--bg-hud) 0%, var(--bg-hud-2) 55%, var(--bg-hud) 100%);
+    color: var(--white);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    padding: 2.5rem 1.5rem 6rem;
+    font-variant-numeric: tabular-nums;
+  }
+  h1{
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    text-align:center;
+    margin: 0 0 0.3rem;
+  }
+  .variant-name{
+    text-align:center;
+    color: var(--gold);
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0 0 0.15rem;
+  }
+  .variant-desc{
+    text-align:center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    max-width: 46rem;
+    margin: 0 auto 2.5rem;
+    line-height: 1.5;
+  }
+  .stage{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    justify-content:center;
+    align-items:flex-start;
+  }
+  .case{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 0.6rem;
+  }
+  .case-label{
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  /* fake main-window row the tooltip is anchored to */
+  .row{
+    display:flex;
+    align-items:center;
+    gap: 0.5rem;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--green);
+  }
+  .row .icon{
+    width: 16px; height:16px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    flex-shrink:0;
+  }
+
+  /* ---- tooltip panel shared shell ---- */
+  .tooltip{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 0.85rem 1rem;
+    width: 15.5rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .tt-header{
+    display:flex;
+    align-items:center;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+  }
+  .tt-header .icon{
+    width: 18px; height:18px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    flex-shrink:0;
+  }
+  .tt-name{
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+  .tt-desc{
+    color: var(--muted);
+    font-size: 0.74rem;
+    margin: 0 0 0.7rem;
+  }
+  .tt-divider{
+    border: none;
+    border-top: 1px solid var(--divider);
+    margin: 0.55rem 0;
+  }
+  .tt-section-head{
+    color: var(--white);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.15rem;
+  }
+  .tt-line{
+    display:flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .tt-val{ color: var(--gold); font-weight:600; }
+  .tt-label{ color: var(--muted); font-size: 0.72rem; }
+  table.tt-history{
+    width:100%;
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+    font-size: 0.74rem;
+  }
+  table.tt-history th{
+    text-align:left;
+    color: var(--white);
+    font-weight:700;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid var(--divider);
+  }
+  table.tt-history td{ padding: 0.08rem 0; }
+  table.tt-history td.time{ color: var(--muted); width: 3.4rem; }
+  table.tt-history td.val{ color: var(--gold); }
+  .tt-scroll{
+    max-height: 7.4rem;
+    overflow-y: auto;
+  }
+  .tt-scroll::-webkit-scrollbar{ width: 6px; }
+  .tt-scroll::-webkit-scrollbar-thumb{ background: var(--panel-border); border-radius: 3px; }
+  .row-lr{ display:flex; justify-content: space-between; align-items:baseline; }
+
+  /* ---- switcher chrome ---- */
+  .switcher{
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    display:flex;
+    align-items:center;
+    gap: 0.9rem;
+    background: var(--chrome-bg);
+    color: var(--chrome-fg);
+    border: 1px solid rgba(128,128,128,0.25);
+    border-radius: 999px;
+    padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    font-size: 0.85rem;
+    z-index: 10;
+  }
+  .switcher button{
+    all: unset;
+    cursor:pointer;
+    width: 1.9rem; height: 1.9rem;
+    display:flex; align-items:center; justify-content:center;
+    border-radius: 50%;
+    color: var(--chrome-fg);
+  }
+  .switcher button:hover{ background: rgba(128,128,128,0.18); }
+  .switcher button:focus-visible{ outline: 2px solid var(--chrome-accent); outline-offset: 2px; }
+  .switcher .label{
+    min-width: 13rem;
+    text-align:center;
+    font-weight:600;
+  }
+  .switcher .label b{ color: var(--chrome-accent); }
+</style>
+
+<h1>Per-stat hover tooltip — issue #22</h1>
+<p class="variant-name" id="vname"></p>
+<p class="variant-desc" id="vdesc"></p>
+
+<div class="stage" id="stage"></div>
+
+<div class="switcher">
+  <button id="prev" aria-label="Previous variant">&#8592;</button>
+  <span class="label" id="switch-label"></span>
+  <button id="next" aria-label="Next variant">&#8594;</button>
+</div>
+
+<script>
+const STATS = {
+  coin: {
+    icon: true, name: "Coin", desc: "The primary currency of Tyria. Spent at vendors throughout the world.",
+    lifetime: "472g 25s 24c", session: "0g 2s 33c", rate: "0g 2s 62c", duration: "00:53",
+    hasLifetime: true, hasRate: true,
+    history: [
+      ["22:38","0g 2s 33c"],["22:33","0g 2s 33c"],["22:28","0g 2s 33c"],["22:23","0g 2s 33c"],
+      ["22:18","0g 2s 33c"],["22:13","0g 2s 33c"],["22:08","0g 2s 33c"],["22:01","0g 0s 3c"],
+      ["21:55","0g 0s 3c"],["21:50","0g 0s 3c"],["21:45","0g 0s 0c"],
+    ],
+  },
+  timer: {
+    icon: true, name: "Session Timer", desc: "Time elapsed since the session started.",
+    lifetime: null, session: "00:53:12", rate: null, duration: "00:53",
+    hasLifetime: false, hasRate: false,
+    history: [
+      ["22:38","00:53:12"],["22:33","00:48:12"],["22:28","00:43:12"],["22:23","00:38:12"],
+      ["22:18","00:33:12"],["22:13","00:28:12"],["22:08","00:23:12"],["22:01","00:16:12"],
+      ["21:55","00:10:12"],["21:50","00:05:12"],["21:45","00:00:12"],
+    ],
+  },
+  kdr: {
+    icon: true, name: "KDR", desc: "Kill / death ratio, computed from session kills and deaths.",
+    lifetime: "2.14", session: "3.00", rate: null, duration: "00:53",
+    hasLifetime: true, hasRate: false,
+    history: [
+      ["22:38","3.00"],["22:33","3.00"],["22:28","2.50"],["22:23","2.50"],
+      ["22:18","2.00"],["22:13","2.00"],["22:08","2.00"],["22:01","1.00"],
+      ["21:55","1.00"],["21:50","0.00"],["21:45","0.00"],
+    ],
+  },
+};
+
+function icon(){ return '<span class="icon"></span>'; }
+
+function variantA(s){
+  // Blish-parity: "Lifetime" / "SESSION" section headers, one field per line, omit inapplicable lines
+  let html = `<div class="tooltip">
+    <div class="tt-header">${icon()}<span class="tt-name">${s.name}</span></div>
+    <p class="tt-desc">${s.desc}</p>`;
+  if(s.hasLifetime){
+    html += `<div class="tt-section-head">Lifetime</div>
+    <div class="tt-line"><span class="tt-val">${s.lifetime}</span><span class="tt-label">${s.name}</span></div>
+    <hr class="tt-divider">`;
+  }
+  html += `<div class="tt-section-head">Session</div>
+    <div class="tt-line"><span class="tt-val">${s.session}</span><span class="tt-label">${s.name}</span></div>`;
+  if(s.hasRate){
+    html += `<div class="tt-line"><span class="tt-val">${s.rate}</span><span class="tt-label">${s.name} / hour</span></div>`;
+  }
+  html += `<div class="tt-line"><span class="tt-val">${s.duration}</span><span class="tt-label">Duration</span></div>
+    <hr class="tt-divider">
+    <table class="tt-history"><tr><th>Time</th><th>${s.name}</th></tr>
+    ${s.history.map(([t,v]) => `<tr><td class="time">${t}</td><td class="val">${v}</td></tr>`).join("")}
+    </table>
+  </div>`;
+  return html;
+}
+
+function variantB(s){
+  // Compact label/value table, no section headers, right-aligned values, dense
+  let html = `<div class="tooltip">
+    <div class="tt-header">${icon()}<span class="tt-name">${s.name}</span></div>
+    <p class="tt-desc">${s.desc}</p>`;
+  if(s.hasLifetime){
+    html += `<div class="row-lr"><span class="tt-label">Lifetime Value</span><span class="tt-val">${s.lifetime}</span></div>`;
+  }
+  html += `<div class="row-lr"><span class="tt-label">Session Value</span><span class="tt-val">${s.session}</span></div>`;
+  if(s.hasRate){
+    html += `<div class="row-lr"><span class="tt-label">Session Rate</span><span class="tt-val">${s.rate}/hr</span></div>`;
+  }
+  html += `<div class="row-lr"><span class="tt-label">Duration</span><span class="tt-val">${s.duration}</span></div>
+    <hr class="tt-divider">
+    <div class="tt-section-head" style="margin-bottom:0.3rem;">History (5m)</div>
+    <table class="tt-history">
+    ${s.history.slice(0,6).map(([t,v]) => `<tr><td class="time">${t}</td><td class="val">${v}</td></tr>`).join("")}
+    </table>
+  </div>`;
+  return html;
+}
+
+function variantC(s){
+  // Space-optimized: rate+duration folded into one line, scrollable capped history
+  let html = `<div class="tooltip">
+    <div class="tt-header">${icon()}<span class="tt-name">${s.name}</span></div>
+    <p class="tt-desc">${s.desc}</p>`;
+  if(s.hasLifetime){
+    html += `<div class="tt-line"><span class="tt-label">Lifetime</span><span class="tt-val">${s.lifetime}</span></div>`;
+  }
+  html += `<div class="tt-line"><span class="tt-label">Session</span><span class="tt-val">${s.session}</span></div>`;
+  const rateLine = s.hasRate ? `${s.rate}/hr over ${s.duration}` : s.duration;
+  html += `<div class="tt-line"><span class="tt-label">${s.hasRate ? "Rate" : "Duration"}</span><span class="tt-val">${rateLine}</span></div>
+    <hr class="tt-divider">
+    <div class="tt-section-head">History</div>
+    <div class="tt-scroll">
+    <table class="tt-history">
+    ${s.history.map(([t,v]) => `<tr><td class="time">${t}</td><td class="val">${v}</td></tr>`).join("")}
+    </table>
+    </div>
+  </div>`;
+  return html;
+}
+
+const VARIANTS = [
+  { key: "A", name: "Blish-parity", fn: variantA,
+    desc: "Mirrors the reference tooltip's structure almost exactly: a “Lifetime” section and a “Session” section, each field on its own line, unbounded history list. Inapplicable rows (Lifetime/Rate) are just skipped." },
+  { key: "B", name: "Compact label/value", fn: variantB,
+    desc: "No section headers — every field is a label · value row using our own vocabulary (Lifetime Value, Session Value, Session Rate) instead of Blish's “Total”/“SESSION”. History capped to the 6 most recent snapshots, no scrolling." },
+  { key: "C", name: "Space-optimized", fn: variantC,
+    desc: "Rate and Duration fold into a single line to save vertical space. History becomes a fixed-height scrollable region so an hours-long session's snapshot log can't grow the tooltip off-screen." },
+];
+
+let idx = 0;
+
+function render(){
+  const v = VARIANTS[idx];
+  document.getElementById("vname").textContent = `${v.key} — ${v.name}`;
+  document.getElementById("vdesc").textContent = v.desc;
+  document.getElementById("switch-label").innerHTML = `<b>${v.key}</b> — ${v.name}`;
+  const stage = document.getElementById("stage");
+  stage.innerHTML = "";
+  const cases = [
+    ["Normal stat (Coin)", STATS.coin],
+    ["MumbleLink timer (Session Timer)", STATS.timer],
+    ["Ratio stat (KDR)", STATS.kdr],
+  ];
+  for(const [label, s] of cases){
+    const wrap = document.createElement("div");
+    wrap.className = "case";
+    wrap.innerHTML = `<span class="case-label">${label}</span>
+      <div class="row">${icon()}<span>${s.session}</span></div>
+      ${v.fn(s)}`;
+    stage.appendChild(wrap);
+  }
+  history.replaceState(null, "", "#" + v.key);
+}
+
+function go(delta){
+  idx = (idx + delta + VARIANTS.length) % VARIANTS.length;
+  render();
+}
+
+document.getElementById("prev").addEventListener("click", () => go(-1));
+document.getElementById("next").addEventListener("click", () => go(1));
+window.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if(t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  if(e.key === "ArrowLeft") go(-1);
+  if(e.key === "ArrowRight") go(1);
+});
+
+const initial = VARIANTS.findIndex(v => v.key === location.hash.replace("#",""));
+if(initial >= 0) idx = initial;
+render();
+</script>

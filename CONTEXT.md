@@ -33,6 +33,10 @@ _Avoid_: Per-hour value, hourly rate, gph (game-specific)
 The tracking window a Session Value is measured against. Ends and restarts on reset, triggered manually only — automatic triggers (e.g. on map change) were considered and rejected as unnecessary.
 _Avoid_: Run, tracking period
 
+**History Snapshot**:
+A recorded set of a Stat's Session Value (and Session Rate where applicable) at a point in time during the Session, captured into `SessionTracker`'s history log. Session Timer, Combat Time, and stats with no Session Rate are still snapshotted for their Session Value alone.
+_Avoid_: Entry, data point, sample — "Snapshot" alone refers to `ApiSnapshot` (the raw GW2 API poll result in `api.rs`), a different, unrelated concept.
+
 **Regression Guard**:
 The rule that a Lifetime Value drop is ignored (treated as a transient GW2 API glitch) for Stat Sources that should only ever increase — currently Achievement- and Deaths-backed stats (`is_regression_guarded`). Not applied to currency/item stats or ratios, which can legitimately drop.
 _Avoid_: Guard, clamp
