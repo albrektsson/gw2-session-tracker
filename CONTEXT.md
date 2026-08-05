@@ -25,6 +25,10 @@ _Avoid_: Delta, gain
 A Stat whose value is one Stat divided by another (e.g. KDR = kills / deaths) rather than read straight from a Stat Source. Falls back to the raw numerator when the denominator is zero (`ratio_with_fallback`) instead of dividing by zero — applies to both its Lifetime Value and its Session Value.
 _Avoid_: Computed stat, derived stat
 
+**Session Rate**:
+A Stat's Session Value divided by the Session's elapsed time in hours (`session_value / elapsed_hours`), computed identically everywhere it's shown. Not defined for Ratio Stats (a per-hour rate of a ratio isn't meaningful) or for Session Timer/Combat Time (their session value is the elapsed/combat time itself, so a rate of it is either circular or degenerate).
+_Avoid_: Per-hour value, hourly rate, gph (game-specific)
+
 **Session**:
 The tracking window a Session Value is measured against. Ends and restarts on reset, triggered manually only — automatic triggers (e.g. on map change) were considered and rejected as unnecessary.
 _Avoid_: Run, tracking period
