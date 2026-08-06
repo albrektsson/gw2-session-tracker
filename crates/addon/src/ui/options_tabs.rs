@@ -21,29 +21,32 @@ thread_local! {
     static SEEDED: Cell<bool> = const { Cell::new(false) };
 }
 
-pub fn render_settings_window(ui: &Ui, app: &AppHandle) {
-    nexus::imgui::Window::new("Session Tracker Settings").build(ui, || {
-        if let Some(_tabs) = ui.tab_bar("settings-tabs") {
-            if let Some(_tab) = ui.tab_item("General") {
-                render_general_tab(ui, app);
-            }
-            if let Some(_tab) = ui.tab_item("Select Stats") {
-                render_select_stats_tab(ui, app);
-            }
-            if let Some(_tab) = ui.tab_item("Arrange Stats") {
-                render_arrange_stats_tab(ui, app);
-            }
-            if let Some(_tab) = ui.tab_item("Appearance") {
-                render_appearance_tab(ui, app);
-            }
-            if let Some(_tab) = ui.tab_item("Window Behavior") {
-                render_window_behavior_tab(ui, app);
-            }
-            if let Some(_tab) = ui.tab_item("Formatting") {
-                render_formatting_tab(ui, app);
-            }
+/// Renders Session Tracker's config UI as sub-tabs directly into Nexus's
+/// own addon "Options" panel (registered via `RenderType::OptionsRender`
+/// in `lib.rs`) - Nexus already draws the surrounding "Options" header
+/// and window chrome, so this renders the tab bar straight into the
+/// current ImGui window rather than opening one of its own.
+pub fn render_options_tabs(ui: &Ui, app: &AppHandle) {
+    if let Some(_tabs) = ui.tab_bar("session-tracker-options-tabs") {
+        if let Some(_tab) = ui.tab_item("General") {
+            render_general_tab(ui, app);
         }
-    });
+        if let Some(_tab) = ui.tab_item("Select Stats") {
+            render_select_stats_tab(ui, app);
+        }
+        if let Some(_tab) = ui.tab_item("Arrange Stats") {
+            render_arrange_stats_tab(ui, app);
+        }
+        if let Some(_tab) = ui.tab_item("Appearance") {
+            render_appearance_tab(ui, app);
+        }
+        if let Some(_tab) = ui.tab_item("Window Behavior") {
+            render_window_behavior_tab(ui, app);
+        }
+        if let Some(_tab) = ui.tab_item("Formatting") {
+            render_formatting_tab(ui, app);
+        }
+    }
 }
 
 fn render_general_tab(ui: &Ui, app: &AppHandle) {

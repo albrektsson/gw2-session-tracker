@@ -336,10 +336,7 @@ pub fn render_main_window(ui: &Ui, app: &AppHandle) {
         match &state.status {
             PollStatus::AwaitingApiKey => {
                 ui.text("No API key configured yet.");
-                ui.text(format!(
-                    "Open Settings (default keybind {}, rebindable in Nexus) to add one.",
-                    crate::SETTINGS_KEYBIND_DEFAULT
-                ));
+                ui.text("Open Session Tracker's Options in Nexus's addon list to add one.");
                 return;
             }
             PollStatus::Pending | PollStatus::Error(_) | PollStatus::Ok => {}
@@ -377,10 +374,7 @@ pub fn render_main_window(ui: &Ui, app: &AppHandle) {
             selected.retain(|stat| !should_hide_when_zero(&state, stat));
         }
         if selected.is_empty() {
-            ui.text(format!(
-                "No stats selected. Open Settings (default keybind {}, rebindable in Nexus) to pick some.",
-                crate::SETTINGS_KEYBIND_DEFAULT
-            ));
+            ui.text("No stats selected. Open Session Tracker's Options in Nexus's addon list to pick some.");
             return;
         }
 

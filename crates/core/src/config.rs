@@ -50,8 +50,6 @@ pub struct Config {
     #[serde(default)]
     pub background_color: [f32; 3],
     #[serde(default)]
-    pub show_settings: bool,
-    #[serde(default)]
     pub show_main: bool,
     #[serde(default = "default_row_fields")]
     pub row_fields: Vec<RowField>,
@@ -140,7 +138,6 @@ impl Default for Config {
             value_color: default_label_value_color(),
             icon_color: default_label_value_color(),
             background_color: [0.0, 0.0, 0.0],
-            show_settings: false,
             show_main: false,
             row_fields: default_row_fields(),
             row_separator: default_row_separator(),
@@ -276,7 +273,6 @@ mod tests {
             value_color: [0.7, 0.8, 0.9, 1.0],
             icon_color: [0.4, 0.5, 0.6, 1.0],
             background_color: [0.9, 0.1, 0.2],
-            show_settings: true,
             show_main: true,
             row_fields: vec![RowField::Icon, RowField::Name, RowField::Rate],
             row_separator: "/".to_string(),
@@ -348,7 +344,6 @@ mod tests {
         assert_eq!(config.value_color, default_label_value_color());
         assert_eq!(config.icon_color, default_label_value_color());
         assert_eq!(config.background_color, [0.0, 0.0, 0.0]);
-        assert!(!config.show_settings);
         assert!(!config.show_main);
         assert_eq!(config.row_fields, default_row_fields());
         assert_eq!(config.row_separator, default_row_separator());

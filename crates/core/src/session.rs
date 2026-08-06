@@ -145,12 +145,15 @@ impl SessionTracker {
 
     /// `session_rate`, but sampled from the most recent History Snapshot
     /// instead of the live elapsed time, so it only changes once per
-    /// Snapshot (~5 minutes) instead of drifting every frame. Falls back
-    /// to the live `session_rate` before the first Snapshot exists.
+    /// Snapshot (~5 minutes) instead of drifting every frame. Reads `0.0`
+    /// before the first Snapshot exists rather than falling back to the
+    /// live `session_rate`, which would be wildly unstable this early -
+    /// dividing by a handful of seconds of elapsed time swings hugely for
+    /// even a small change in value.
     pub fn displayed_rate(&self, id: &str) -> f64 {
         match self.history.entries.last() {
             Some(snapshot) => Self::rate_over(snapshot.values.get(id).copied().unwrap_or(0.0), snapshot.elapsed),
-            None => self.session_rate(id),
+            None => 0.0,
         }
     }
 
@@ -509,9 +512,9 @@ mod tests {
     }
 
     #[test]
-    fn displayed_rate_falls_back_to_the_live_session_rate_before_any_snapshot_exists() {
+    fn displayed_rate_is_zero_before_any_snapshot_exists() {
         let tracker = SessionTracker::new();
-        assert_eq!(tracker.displayed_rate("gold"), tracker.session_rate("gold"));
+        assert_eq!(tracker.displayed_rate("gold"), 0.0);
     }
 
     #[test]

@@ -150,8 +150,8 @@ resetting to the default offset.
 - **Click behavior**: left-click triggers the existing `SESSION_TRACKER_TOGGLE_MAIN`
   keybind (`crates/addon/src/lib.rs`, default `ALT+SHIFT+W`) via `add_quick_access`'s
   `keybind_identifier` param — toggles main window visibility.
-- No right-click context menu (settings stays reachable via
-  `SESSION_TRACKER_TOGGLE_SETTINGS`, default `ALT+SHIFT+E`).
+- No right-click context menu (config stays reachable via Session Tracker's entry
+  in Nexus's own addon list — see Settings window organization below).
 
 ## Click-through ([#19](https://github.com/albrektsson/gw2-session-tracker/issues/19) research, [#20](https://github.com/albrektsson/gw2-session-tracker/issues/20) design)
 
@@ -172,8 +172,8 @@ Full writeup: `docs/research/click-through-feasibility.md`.
   also be dragged.
 - Placement: grouped immediately adjacent to `window_drag_enabled` in Window Behavior
   (see Settings organization below) so the greyed-out state reads clearly.
-- Scope: applies only to the main stat-list window; the settings window always stays
-  interactive.
+- Scope: applies only to the main stat-list window; config UI lives in Nexus's own
+  addon-options panel, unaffected either way.
 
 ## Gold/coin format pattern ([#16](https://github.com/albrektsson/gw2-session-tracker/issues/16))
 
@@ -239,8 +239,15 @@ tab-per-group flat list. Final tab bar, in order:
 
 **File structure**: one file per new tab — `appearance_tab.rs`, `window_behavior_tab.rs`,
 `formatting_tab.rs` — each exporting `render_*_tab(ui, app)`, matching the existing
-`arrange_stats_tab.rs`/`select_stats_tab.rs` convention. `settings_window.rs` stays a
-thin wiring point (tab_bar + General inline, as today).
+`arrange_stats_tab.rs`/`select_stats_tab.rs` convention.
+
+**Hosting**: this tab bar renders directly into Nexus's own addon-options panel
+(`RenderType::OptionsRender`, wired in `crates/addon/src/lib.rs`) rather than a
+standalone Session Tracker window — `options_tabs.rs` is the thin wiring point
+(tab_bar + General inline), with no window of its own to open or close.
+`SESSION_TRACKER_TOGGLE_MAIN` (main stat-list window visibility) is the only
+Session Tracker keybind left; there's no separate toggle for config, since it's
+reachable any time via Nexus's addon list.
 
 ## Open questions (not blocking implementation)
 

@@ -36,7 +36,7 @@ pub fn render_appearance_tab(ui: &Ui, app: &AppHandle) {
 fn render_text_and_color_section(ui: &Ui, app: &AppHandle) {
     ui.text("Main window text size:");
     let mut text_scale = app.lock().config.text_scale;
-    if Slider::new("##text_scale", 0.5f32, 3.0f32).build(ui, &mut text_scale) {
+    if Slider::new("##text_scale", 0.5f32, 3.0f32).display_format("%.2f").build(ui, &mut text_scale) {
         app.mutate_and_persist(|state| state.config.text_scale = text_scale);
     }
 
@@ -67,7 +67,7 @@ fn render_text_and_color_section(ui: &Ui, app: &AppHandle) {
 
     ui.text("Main window background opacity:");
     let mut opacity = app.lock().config.background_opacity;
-    if Slider::new("##background_opacity", 0.0f32, 1.0f32).build(ui, &mut opacity) {
+    if Slider::new("##background_opacity", 0.0f32, 1.0f32).display_format("%.2f").build(ui, &mut opacity) {
         app.mutate_and_persist(|state| state.config.background_opacity = opacity);
     }
 }
@@ -145,18 +145,18 @@ fn render_window_sizing_section(ui: &Ui, app: &AppHandle) {
     }
     if fixed_window_height {
         let mut window_height = app.lock().config.window_height;
-        if Slider::new("Window height", 50.0f32, 800.0f32).build(ui, &mut window_height) {
+        if Slider::new("Window height", 50.0f32, 800.0f32).display_format("%.0f").build(ui, &mut window_height) {
             app.mutate_and_persist(|state| state.config.window_height = window_height);
         }
     }
 
     let mut margin = app.lock().config.window_right_margin;
-    if Slider::new("Right margin", 0.0f32, 50.0f32).build(ui, &mut margin) {
+    if Slider::new("Right margin", 0.0f32, 50.0f32).display_format("%.0f").build(ui, &mut margin) {
         app.mutate_and_persist(|state| state.config.window_right_margin = margin);
     }
 
     let mut padding = app.lock().config.padding;
-    if Slider::new("Padding", 0.0f32, 30.0f32).build(ui, &mut padding) {
+    if Slider::new("Padding", 0.0f32, 30.0f32).display_format("%.0f").build(ui, &mut padding) {
         app.mutate_and_persist(|state| state.config.padding = padding);
     }
 
@@ -166,7 +166,7 @@ fn render_window_sizing_section(ui: &Ui, app: &AppHandle) {
     }
     if fix_label_width {
         let mut label_width = app.lock().config.label_width;
-        if Slider::new("Label width", 20.0f32, 300.0f32).build(ui, &mut label_width) {
+        if Slider::new("Label width", 20.0f32, 300.0f32).display_format("%.0f").build(ui, &mut label_width) {
             app.mutate_and_persist(|state| state.config.label_width = label_width);
         }
     }

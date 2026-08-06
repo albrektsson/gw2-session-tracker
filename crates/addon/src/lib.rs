@@ -16,7 +16,7 @@ use std::{
 };
 use app_handle::AppHandle;
 use ui::main_window::render_main_window;
-use ui::settings_window::render_settings_window;
+use ui::options_tabs::render_options_tabs;
 use session_tracker_core::{config::load_config, sync::lock_recover};
 use session_tracker_net::{
     gw2_client::fetch_snapshot,
@@ -39,11 +39,6 @@ struct Addon {
 }
 
 static ADDON: Mutex<Option<Addon>> = Mutex::new(None);
-
-/// Default keybind for toggling the settings window, used both to
-/// register it and (since Nexus's addon API has no way to read back a
-/// keybind the user has since rebound) as a "default" hint in UI copy.
-pub(crate) const SETTINGS_KEYBIND_DEFAULT: &str = "ALT+SHIFT+E";
 
 /// `remove_quick_access` is keyed only by this identifier string (not by
 /// the `Revertible` `add_quick_access` returns), so `load()`, `unload()`,
@@ -111,18 +106,7 @@ fn load() {
     }
 
     register_render(RenderType::Render, render!(render_frame)).revert_on_unload();
-
-    let toggle_settings = keybind_handler!(|_id, is_release| {
-        if !is_release {
-            toggle_show_settings();
-        }
-    });
-    register_keybind_with_string(
-        "SESSION_TRACKER_TOGGLE_SETTINGS",
-        toggle_settings,
-        SETTINGS_KEYBIND_DEFAULT,
-    )
-    .revert_on_unload();
+    register_render(RenderType::OptionsRender, render!(render_options)).revert_on_unload();
 
     let toggle_main = keybind_handler!(|_id, is_release| {
         if !is_release {
@@ -153,13 +137,6 @@ fn load() {
     *addon = Some(Addon { app, poller });
 }
 
-fn toggle_show_settings() {
-    let guard = lock_recover(&ADDON);
-    if let Some(addon) = guard.as_ref() {
-        addon.app.mutate_and_persist(|state| state.config.show_settings = !state.config.show_settings);
-    }
-}
-
 fn toggle_show_main() {
     let guard = lock_recover(&ADDON);
     if let Some(addon) = guard.as_ref() {
@@ -177,9 +154,9 @@ fn unload() {
 }
 
 /// Registers or deregisters the quick-access icon to match a live change
-/// of `menu_icon_enabled` from the settings UI - a direct one-shot call
+/// of `menu_icon_enabled` from the Options UI - a direct one-shot call
 /// rather than something polled every render frame, matching how
-/// `toggle_show_settings`/`toggle_show_main` are one-shot too.
+/// `toggle_show_main` is one-shot too.
 pub(crate) fn set_quick_access_enabled(enabled: bool) {
     if enabled {
         register_quick_access();
@@ -205,7 +182,7 @@ fn render_frame(ui: &Ui) {
         return;
     };
 
-    let (show_settings, show_main) = {
+    let show_main = {
         let mut state = addon.app.lock();
         if let Some(link) = nexus::data_link::read_mumble_link() {
             state.session.sample_position(link.avatar.position);
@@ -214,14 +191,23 @@ fn render_frame(ui: &Ui) {
             );
             state.current_map_group = session_tracker_core::map_context::map_group_for(link.context.map_type);
         }
-        (state.config.show_settings, state.config.show_main)
+        state.config.show_main
     };
-
-    if show_settings {
-        render_settings_window(ui, &addon.app);
-    }
 
     if show_main {
         render_main_window(ui, &addon.app);
     }
+}
+
+/// Render callback for `RenderType::OptionsRender` - Nexus calls this only
+/// while its own addon-options panel has Session Tracker's "Options"
+/// section open, appending whatever it draws directly beneath the header
+/// Nexus itself renders. See `render_frame` for why this reads `ADDON`
+/// from the module-level static rather than capturing it.
+fn render_options(ui: &Ui) {
+    let guard = lock_recover(&ADDON);
+    let Some(addon) = guard.as_ref() else {
+        return;
+    };
+    render_options_tabs(ui, &addon.app);
 }

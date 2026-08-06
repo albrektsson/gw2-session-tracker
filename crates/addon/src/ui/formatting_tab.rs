@@ -6,7 +6,7 @@ use session_tracker_net::state::PollStatus;
 use crate::app_handle::AppHandle;
 
 // Same seed-once-then-let-the-user-type convention as the API key field in
-// settings_window.rs's General tab.
+// options_tabs.rs's General tab.
 thread_local! {
     static COIN_FORMAT_INPUT: RefCell<String> = const { RefCell::new(String::new()) };
     static SEEDED: Cell<bool> = const { Cell::new(false) };
