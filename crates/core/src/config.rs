@@ -91,18 +91,31 @@ pub struct Config {
 }
 
 impl Config {
+    /// Pads or truncates `row_separator_visible` to exactly
+    /// `row_fields.len().saturating_sub(1)` entries, padding new gaps as
+    /// visible. `row_separator_visible` shipped after `row_fields`, so a
+    /// config saved before that (with a `row_fields` list already longer
+    /// than the fresh default) would otherwise deserialize with too few
+    /// gaps for its own field list - self-heals that on every load, and
+    /// guards `remove_row_field` against indexing out of bounds.
+    pub fn reconcile_row_separator_visible(&mut self) {
+        let needed = self.row_fields.len().saturating_sub(1);
+        self.row_separator_visible.resize(needed, true);
+    }
+
     /// Adds `field` to the end of `row_fields` and appends a matching
     /// visible-by-default gap to `row_separator_visible`, keeping the two
     /// in sync.
     pub fn push_row_field(&mut self, field: RowField) {
         self.row_fields.push(field);
-        self.row_separator_visible.push(true);
+        self.reconcile_row_separator_visible();
     }
 
     /// Removes `row_fields[index]` and merges its neighboring gaps in
     /// `row_separator_visible`, keeping the left gap's value (or the
     /// remaining gap's value, when `index` is at either end).
     pub fn remove_row_field(&mut self, index: usize) {
+        self.reconcile_row_separator_visible();
         self.row_fields.remove(index);
         if index < self.row_separator_visible.len() {
             self.row_separator_visible.remove(index);
@@ -220,10 +233,12 @@ const CONFIG_FILE_NAME: &str = "session_tracker_config.json";
 
 pub fn load_config(dir: &Path) -> Config {
     let path = dir.join(CONFIG_FILE_NAME);
-    match fs::read_to_string(&path) {
+    let mut config = match fs::read_to_string(&path) {
         Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
         Err(_) => Config::default(),
-    }
+    };
+    config.reconcile_row_separator_visible();
+    config
 }
 
 pub fn save_config(dir: &Path, config: &Config) -> io::Result<()> {
@@ -291,6 +306,29 @@ mod tests {
         fs::write(dir.path().join(CONFIG_FILE_NAME), "not json").unwrap();
         let config = load_config(dir.path());
         assert_eq!(config, Config::default());
+    }
+
+    #[test]
+    fn load_config_pads_row_separator_visible_for_a_row_fields_list_saved_before_it_existed() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(
+            dir.path().join(CONFIG_FILE_NAME),
+            r#"{"api_key": "ABC", "row_fields": ["Icon", "Session", "Lifetime", "Rate"]}"#,
+        )
+        .unwrap();
+        let config = load_config(dir.path());
+        assert_eq!(config.row_fields.len(), 4);
+        assert_eq!(config.row_separator_visible, vec![false, true, true]);
+    }
+
+    #[test]
+    fn remove_row_field_does_not_panic_when_row_separator_visible_is_under_sized() {
+        let mut config = Config::default();
+        config.row_fields = vec![RowField::Icon, RowField::Session, RowField::Lifetime, RowField::Rate];
+        config.row_separator_visible = vec![false, true];
+        config.remove_row_field(3);
+        assert_eq!(config.row_fields, vec![RowField::Icon, RowField::Session, RowField::Lifetime]);
+        assert_eq!(config.row_separator_visible, vec![false, true]);
     }
 
     #[test]
