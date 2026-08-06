@@ -1,9 +1,39 @@
+use crate::stats::ratio_with_fallback;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 // Real per-frame movement is well under this even at max mount speed; only a
 // teleport (waypoint, portal, map change) can jump farther.
 const MAX_PLAUSIBLE_METERS_PER_SAMPLE: f64 = 25.0;
+
+/// A History Snapshot is captured every Nth successful poll, riding the
+/// addon's existing ~60s poll cadence for a ~5 minute interval rather than
+/// needing its own timer.
+const HISTORY_SNAPSHOT_INTERVAL_TICKS: u64 = 5;
+
+/// A History Snapshot never stores Session Rate alongside `values` - it's
+/// always derived at read time as `value / (elapsed.as_secs_f64() /
+/// 3600.0)` for the stats `stats::has_rate` allows it for, so it can never
+/// drift out of sync with the formula used everywhere else.
+#[derive(Debug, Clone)]
+pub struct HistorySnapshot {
+    pub elapsed: Duration,
+    pub values: HashMap<&'static str, f64>,
+}
+
+/// The Session's history log: one `HistorySnapshot` of the full Stat
+/// Catalog every 5th successful poll (~5 minutes), captured by
+/// `SessionTracker::update`. Cleared on `reset()`.
+#[derive(Debug, Default)]
+pub struct SessionHistory {
+    entries: Vec<HistorySnapshot>,
+}
+
+impl SessionHistory {
+    pub fn entries(&self) -> &[HistorySnapshot] {
+        &self.entries
+    }
+}
 
 fn distance3(a: [f32; 3], b: [f32; 3]) -> f64 {
     let dx = (b[0] - a[0]) as f64;
@@ -21,6 +51,8 @@ pub struct SessionTracker {
     last_position: Option<[f32; 3]>,
     combat_duration: Duration,
     combat_sample: Option<(Instant, bool)>,
+    history: SessionHistory,
+    poll_count: u64,
 }
 
 impl SessionTracker {
@@ -41,6 +73,23 @@ impl SessionTracker {
             self.started_at = Some(Instant::now());
         }
         self.lifetime = lifetime;
+
+        self.poll_count += 1;
+        if self.poll_count.is_multiple_of(HISTORY_SNAPSHOT_INTERVAL_TICKS) {
+            self.record_history_snapshot();
+        }
+    }
+
+    fn record_history_snapshot(&mut self) {
+        let values = crate::stats::STAT_CATALOG
+            .iter()
+            .map(|stat| (stat.id, self.session_amount(stat.id)))
+            .collect();
+        self.history.entries.push(HistorySnapshot { elapsed: self.elapsed(), values });
+    }
+
+    pub fn history(&self) -> &SessionHistory {
+        &self.history
     }
 
     pub fn lifetime_value(&self, id: &str) -> f64 {
@@ -56,6 +105,36 @@ impl SessionTracker {
             .copied()
             .unwrap_or(current);
         current - base
+    }
+
+    /// The session-scoped number for any stat id - the single place that
+    /// knows about the MumbleLink-sourced stats (Session Timer, Combat
+    /// Time, Distance Traveled aren't diffed against a lifetime baseline
+    /// like everything else) and the Ratio Stats (KDR, PvP KDR are
+    /// computed from their own session-scoped inputs, not diffed
+    /// directly). Everything else falls through to `session_value`.
+    pub fn session_amount(&self, id: &str) -> f64 {
+        match id {
+            "session_timer" => self.elapsed().as_secs_f64(),
+            "combat_time" => self.combat_time_elapsed().as_secs_f64(),
+            "distance_traveled" => self.distance_traveled_meters(),
+            "kdr" => ratio_with_fallback(self.session_value("kills"), self.session_value("deaths")),
+            "pvp_kdr" => ratio_with_fallback(self.session_value("pvp_kills"), self.session_value("deaths")),
+            _ => self.session_value(id),
+        }
+    }
+
+    /// Session Rate: `session_amount(id) / elapsed_hours`, `0.0` before the
+    /// session has accumulated any elapsed time. Not meaningful for every
+    /// stat - see `stats::has_rate` for which ids should actually display
+    /// this.
+    pub fn session_rate(&self, id: &str) -> f64 {
+        let elapsed_hours = self.elapsed().as_secs_f64() / 3600.0;
+        if elapsed_hours <= 0.0 {
+            0.0
+        } else {
+            self.session_amount(id) / elapsed_hours
+        }
     }
 
     pub fn has_data(&self) -> bool {
@@ -120,6 +199,8 @@ impl SessionTracker {
             self.combat_sample = Some((Instant::now(), was_in_combat));
         }
         self.combat_duration = Duration::ZERO;
+        self.history.entries.clear();
+        self.poll_count = 0;
     }
 }
 
@@ -338,5 +419,114 @@ mod tests {
 
         tracker.sample_combat_state(true);
         assert!(tracker.combat_time_elapsed() < Duration::from_millis(20));
+    }
+
+    #[test]
+    fn session_amount_falls_through_to_session_value_for_ordinary_stats() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("gold", 100.0)]));
+        tracker.update(values(&[("gold", 130.0)]));
+        assert_eq!(tracker.session_amount("gold"), 30.0);
+    }
+
+    #[test]
+    fn session_amount_uses_elapsed_seconds_for_session_timer() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 1.0)]));
+        let amount = tracker.session_amount("session_timer");
+        assert!((0.0..1.0).contains(&amount));
+    }
+
+    #[test]
+    fn session_amount_uses_combat_time_elapsed_seconds_for_combat_time() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(true);
+        assert!(tracker.session_amount("combat_time") >= 0.02);
+    }
+
+    #[test]
+    fn session_amount_uses_distance_traveled_meters_for_distance_traveled() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_position([0.0, 0.0, 0.0]);
+        tracker.sample_position([3.0, 4.0, 0.0]);
+        assert_eq!(tracker.session_amount("distance_traveled"), 5.0);
+    }
+
+    #[test]
+    fn session_amount_computes_kdr_from_session_kills_and_deaths() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0), ("deaths", 20.0)]));
+        tracker.update(values(&[("kills", 108.0), ("deaths", 22.0)]));
+        assert_eq!(tracker.session_amount("kdr"), 4.0);
+    }
+
+    #[test]
+    fn session_amount_computes_pvp_kdr_from_session_pvp_kills_and_shared_deaths() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("pvp_kills", 50.0), ("deaths", 10.0)]));
+        tracker.update(values(&[("pvp_kills", 60.0), ("deaths", 15.0)]));
+        assert_eq!(tracker.session_amount("pvp_kdr"), 2.0);
+    }
+
+    #[test]
+    fn session_rate_is_zero_before_the_session_has_started() {
+        let tracker = SessionTracker::new();
+        assert_eq!(tracker.session_rate("gold"), 0.0);
+    }
+
+    #[test]
+    fn history_has_no_entries_before_the_fifth_update() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..4 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert!(tracker.history().entries().is_empty());
+    }
+
+    #[test]
+    fn history_records_a_snapshot_on_the_fifth_update() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..5 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert_eq!(tracker.history().entries().len(), 1);
+    }
+
+    #[test]
+    fn history_records_a_snapshot_every_fifth_update_thereafter() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..10 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert_eq!(tracker.history().entries().len(), 2);
+    }
+
+    #[test]
+    fn history_snapshot_captures_session_amount_for_every_stat() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..5 {
+            tracker.update(values(&[("kills", 100.0 + i as f64)]));
+        }
+        let snapshot = &tracker.history().entries()[0];
+        assert_eq!(snapshot.values["kills"], tracker.session_amount("kills"));
+    }
+
+    #[test]
+    fn reset_clears_history_and_poll_count() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..5 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert_eq!(tracker.history().entries().len(), 1);
+
+        tracker.reset();
+        assert!(tracker.history().entries().is_empty());
+
+        for i in 0..4 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert!(tracker.history().entries().is_empty());
     }
 }

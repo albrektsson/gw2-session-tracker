@@ -25,18 +25,76 @@ pub fn format_ratio(value: f64) -> String {
 }
 
 /// Formats a raw copper amount (the unit GW2's API reports the "Coin"
-/// wallet currency in) as `"Xg Ys Zc"`, e.g. `4722524.0` -> `"472g 25s
-/// 24c"`. 100 copper = 1 silver, 100 silver = 1 gold (so 10000 copper =
-/// 1 gold). The gold portion gets thousands separators for large values;
-/// silver/copper are always exactly two digits' worth (0-99).
-pub fn format_coin(total_copper: f64) -> String {
+/// wallet currency in) against `pattern` (`Config::coin_format`), e.g.
+/// pattern `"{g}g {s}s {c}c"` on `4722524.0` -> `"472g 25s 24c"`. 100
+/// copper = 1 silver, 100 silver = 1 gold (so 10000 copper = 1 gold). `{g}`
+/// gets thousands separators for large values; `{s}`/`{c}` are always
+/// unpadded (0-99, no leading zero). Anything in `pattern` outside a
+/// `{g}`/`{s}`/`{c}` token is copied through literally; the negative-value
+/// `-` sign is always an automatic prefix outside the pattern, never a
+/// token. Callers should validate `pattern` with `validate_coin_format`
+/// first - an unrecognized token here is silently dropped rather than
+/// erroring, since by the time this runs (render time), a malformed
+/// pattern should already have been rejected at save time.
+pub fn format_coin(total_copper: f64, pattern: &str) -> String {
     let rounded = total_copper.round() as i64;
     let sign = if rounded < 0 { "-" } else { "" };
     let abs = rounded.unsigned_abs();
     let gold = abs / 10_000;
     let silver = (abs % 10_000) / 100;
     let copper = abs % 100;
-    format!("{sign}{}g {silver}s {copper}c", format_thousands(gold as f64))
+
+    let mut result = String::with_capacity(pattern.len());
+    let mut chars = pattern.chars();
+    while let Some(c) = chars.next() {
+        if c != '{' {
+            result.push(c);
+            continue;
+        }
+        let token: String = chars.by_ref().take_while(|&c| c != '}').collect();
+        match token.as_str() {
+            "g" => result.push_str(&format_thousands(gold as f64)),
+            "s" => result.push_str(&silver.to_string()),
+            "c" => result.push_str(&copper.to_string()),
+            _ => {}
+        }
+    }
+    format!("{sign}{result}")
+}
+
+/// Rejects a `Config::coin_format` pattern with unbalanced `{`/`}` braces
+/// or a token name other than `g`/`s`/`c`. Used at settings-save time, not
+/// at render time - `format_coin` itself stays permissive so a pattern
+/// that was valid when saved never suddenly breaks rendering.
+pub fn validate_coin_format(pattern: &str) -> Result<(), String> {
+    let mut chars = pattern.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' => {
+                let mut token = String::new();
+                let mut closed = false;
+                for tc in chars.by_ref() {
+                    if tc == '}' {
+                        closed = true;
+                        break;
+                    }
+                    if tc == '{' {
+                        return Err("unbalanced braces in coin format pattern".to_string());
+                    }
+                    token.push(tc);
+                }
+                if !closed {
+                    return Err("unbalanced braces in coin format pattern".to_string());
+                }
+                if !matches!(token.as_str(), "g" | "s" | "c") {
+                    return Err(format!("unknown coin format token \"{{{token}}}\" (expected {{g}}, {{s}}, or {{c}})"));
+                }
+            }
+            '}' => return Err("unbalanced braces in coin format pattern".to_string()),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// Formats a duration in seconds as `HH:MM:SS`, e.g. `3725.0` -> `"01:02:05"`.
@@ -100,36 +158,83 @@ mod tests {
         assert_eq!(format_thousands(1999.6), "2,000");
     }
 
+    const DEFAULT_COIN_FORMAT: &str = "{g}g {s}s {c}c";
+
     #[test]
     fn format_coin_zero() {
-        assert_eq!(format_coin(0.0), "0g 0s 0c");
+        assert_eq!(format_coin(0.0, DEFAULT_COIN_FORMAT), "0g 0s 0c");
     }
 
     #[test]
     fn format_coin_copper_only() {
-        assert_eq!(format_coin(33.0), "0g 0s 33c");
+        assert_eq!(format_coin(33.0, DEFAULT_COIN_FORMAT), "0g 0s 33c");
     }
 
     #[test]
     fn format_coin_silver_and_copper() {
-        assert_eq!(format_coin(233.0), "0g 2s 33c");
+        assert_eq!(format_coin(233.0, DEFAULT_COIN_FORMAT), "0g 2s 33c");
     }
 
     #[test]
     fn format_coin_full_breakdown() {
         // 472g 25s 24c = 472*10000 + 25*100 + 24
-        assert_eq!(format_coin(4_722_524.0), "472g 25s 24c");
+        assert_eq!(format_coin(4_722_524.0, DEFAULT_COIN_FORMAT), "472g 25s 24c");
     }
 
     #[test]
     fn format_coin_large_gold_gets_thousands_separator() {
-        assert_eq!(format_coin(123_456_789.0), "12,345g 67s 89c");
+        assert_eq!(format_coin(123_456_789.0, DEFAULT_COIN_FORMAT), "12,345g 67s 89c");
     }
 
     #[test]
     fn format_coin_negative_value() {
         // a session that net-spent more than it earned
-        assert_eq!(format_coin(-233.0), "-0g 2s 33c");
+        assert_eq!(format_coin(-233.0, DEFAULT_COIN_FORMAT), "-0g 2s 33c");
+    }
+
+    #[test]
+    fn format_coin_honors_a_custom_pattern() {
+        assert_eq!(format_coin(4_722_524.0, "{g}/{s}/{c}"), "472/25/24");
+    }
+
+    #[test]
+    fn format_coin_gold_only_pattern_drops_silver_and_copper() {
+        assert_eq!(format_coin(4_722_524.0, "{g}g"), "472g");
+    }
+
+    #[test]
+    fn format_coin_negative_sign_stays_an_automatic_prefix_outside_the_pattern() {
+        assert_eq!(format_coin(-33.0, "{c}c"), "-33c");
+    }
+
+    #[test]
+    fn validate_coin_format_accepts_the_default_pattern() {
+        assert!(validate_coin_format(DEFAULT_COIN_FORMAT).is_ok());
+    }
+
+    #[test]
+    fn validate_coin_format_accepts_a_gold_only_pattern() {
+        assert!(validate_coin_format("{g}g").is_ok());
+    }
+
+    #[test]
+    fn validate_coin_format_rejects_an_unclosed_brace() {
+        assert!(validate_coin_format("{g").is_err());
+    }
+
+    #[test]
+    fn validate_coin_format_rejects_a_stray_closing_brace() {
+        assert!(validate_coin_format("g}").is_err());
+    }
+
+    #[test]
+    fn validate_coin_format_rejects_a_nested_opening_brace() {
+        assert!(validate_coin_format("{g{s}").is_err());
+    }
+
+    #[test]
+    fn validate_coin_format_rejects_an_unknown_token() {
+        assert!(validate_coin_format("{sign}").is_err());
     }
 
     #[test]

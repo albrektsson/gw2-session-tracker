@@ -2,11 +2,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
 };
-use session_tracker_core::{
-    config::{save_config, Config},
-    stat_list,
-    sync::lock_recover,
-};
+use session_tracker_core::{config::save_config, stat_list, sync::lock_recover};
 use session_tracker_net::state::{AppState, PollStatus, StatListKind};
 
 /// Wraps the addon's shared `AppState` together with the on-disk config
@@ -16,23 +12,6 @@ use session_tracker_net::state::{AppState, PollStatus, StatListKind};
 pub struct AppHandle {
     shared: Arc<Mutex<AppState>>,
     addon_dir: PathBuf,
-}
-
-fn build_config(state: &AppState) -> Config {
-    Config {
-        api_key: state.api_key.clone(),
-        selected_stats: state.selected_stats.clone(),
-        wvw_selected_stats: state.wvw_selected_stats.clone(),
-        pvp_selected_stats: state.pvp_selected_stats.clone(),
-        pve_selected_stats: state.pve_selected_stats.clone(),
-        background_opacity: state.background_opacity,
-        text_scale: state.text_scale,
-        bold_text: state.bold_text,
-        text_color: state.text_color,
-        icon_color: state.icon_color,
-        show_settings: state.show_settings,
-        show_main: state.show_main,
-    }
 }
 
 impl AppHandle {
@@ -53,10 +32,20 @@ impl AppHandle {
     /// user-facing error channel the addon has - rather than being
     /// dropped silently.
     pub fn mutate_and_persist(&self, f: impl FnOnce(&mut AppState)) {
+        {
+            let mut state = self.lock();
+            f(&mut state);
+        }
+        self.persist();
+    }
+
+    /// Saves the current `AppState.config` to disk without mutating it -
+    /// for callers that already wrote directly into a held lock (e.g. a
+    /// per-frame in-memory update that only wants to hit disk once, on a
+    /// specific frame) rather than going through `mutate_and_persist`.
+    pub fn persist(&self) {
         let mut state = self.lock();
-        f(&mut state);
-        let config = build_config(&state);
-        if let Err(err) = save_config(&self.addon_dir, &config) {
+        if let Err(err) = save_config(&self.addon_dir, &state.config) {
             log::warn!("failed to save session tracker config: {err}");
             state.status = PollStatus::Error(format!("failed to save config: {err}"));
         }

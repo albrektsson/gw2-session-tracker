@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-use session_tracker_core::{api::ApiSnapshot, map_context::MapGroup, session::SessionTracker, stats, sync::lock_recover};
+use session_tracker_core::{api::ApiSnapshot, config::Config, map_context::MapGroup, session::SessionTracker, stats, sync::lock_recover};
 
 #[derive(Debug, Clone)]
 pub enum PollStatus {
@@ -41,82 +41,53 @@ impl StatListKind {
 }
 
 pub struct AppState {
-    pub api_key: Option<String>,
-    pub selected_stats: Vec<String>,
-    pub wvw_selected_stats: Vec<String>,
-    pub pvp_selected_stats: Vec<String>,
-    pub pve_selected_stats: Vec<String>,
-    pub background_opacity: f32,
-    pub text_scale: f32,
-    pub bold_text: bool,
-    pub text_color: [f32; 4],
-    pub icon_color: [f32; 4],
-    pub show_settings: bool,
-    pub show_main: bool,
+    pub config: Config,
     pub session: SessionTracker,
     pub status: PollStatus,
     pub last_updated: Option<Instant>,
     /// Live, derived every frame from MumbleLink (see `render_frame`) - not
     /// part of persisted config.
     pub current_map_group: Option<MapGroup>,
+    /// The Main Window's rendered size as of the end of the last frame it
+    /// actually drew content - not part of persisted config. `always_auto_resize`
+    /// means this frame's size isn't known until after this frame's content is
+    /// drawn, so anchor positioning (computed before content is drawn) is always
+    /// one frame behind; converges within a frame or two and is imperceptible.
+    pub main_window_size: [f32; 2],
 }
 
 impl AppState {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        api_key: Option<String>,
-        selected_stats: Vec<String>,
-        wvw_selected_stats: Vec<String>,
-        pvp_selected_stats: Vec<String>,
-        pve_selected_stats: Vec<String>,
-        background_opacity: f32,
-        text_scale: f32,
-        bold_text: bool,
-        text_color: [f32; 4],
-        icon_color: [f32; 4],
-        show_settings: bool,
-        show_main: bool,
-    ) -> Self {
-        let status = if api_key.is_some() {
+    pub fn new(config: Config) -> Self {
+        let status = if config.api_key.is_some() {
             PollStatus::Pending
         } else {
             PollStatus::AwaitingApiKey
         };
         Self {
-            api_key,
-            selected_stats,
-            wvw_selected_stats,
-            pvp_selected_stats,
-            pve_selected_stats,
-            background_opacity,
-            text_scale,
-            bold_text,
-            text_color,
-            icon_color,
-            show_settings,
-            show_main,
+            config,
             session: SessionTracker::new(),
             status,
             last_updated: None,
             current_map_group: None,
+            main_window_size: [0.0, 0.0],
         }
     }
 
     pub fn stat_list(&self, kind: StatListKind) -> &Vec<String> {
         match kind {
-            StatListKind::Global => &self.selected_stats,
-            StatListKind::Wvw => &self.wvw_selected_stats,
-            StatListKind::Pvp => &self.pvp_selected_stats,
-            StatListKind::Pve => &self.pve_selected_stats,
+            StatListKind::Global => &self.config.selected_stats,
+            StatListKind::Wvw => &self.config.wvw_selected_stats,
+            StatListKind::Pvp => &self.config.pvp_selected_stats,
+            StatListKind::Pve => &self.config.pve_selected_stats,
         }
     }
 
     pub fn stat_list_mut(&mut self, kind: StatListKind) -> &mut Vec<String> {
         match kind {
-            StatListKind::Global => &mut self.selected_stats,
-            StatListKind::Wvw => &mut self.wvw_selected_stats,
-            StatListKind::Pvp => &mut self.pvp_selected_stats,
-            StatListKind::Pve => &mut self.pve_selected_stats,
+            StatListKind::Global => &mut self.config.selected_stats,
+            StatListKind::Wvw => &mut self.config.wvw_selected_stats,
+            StatListKind::Pvp => &mut self.config.pvp_selected_stats,
+            StatListKind::Pve => &mut self.config.pve_selected_stats,
         }
     }
 }
@@ -171,7 +142,7 @@ fn run_poller<F>(
             return;
         }
 
-        let api_key = lock_recover(&shared).api_key.clone();
+        let api_key = lock_recover(&shared).config.api_key.clone();
         if let Some(api_key) = api_key {
             log::debug!("polling GW2 API for WvW stats");
             let result = fetch(&api_key, &shutdown);
@@ -227,20 +198,13 @@ mod tests {
 
     #[test]
     fn stat_list_kind_routes_to_the_right_field() {
-        let mut state = AppState::new(
-            None,
-            vec!["kills".to_string()],
-            vec!["wvw_rank".to_string()],
-            vec!["pvp_rank".to_string()],
-            vec!["karma".to_string()],
-            0.35,
-            1.0,
-            false,
-            [1.0, 0.85, 0.3, 1.0],
-            [1.0, 0.85, 0.3, 1.0],
-            false,
-            false,
-        );
+        let mut state = AppState::new(Config {
+            selected_stats: vec!["kills".to_string()],
+            wvw_selected_stats: vec!["wvw_rank".to_string()],
+            pvp_selected_stats: vec!["pvp_rank".to_string()],
+            pve_selected_stats: vec!["karma".to_string()],
+            ..Default::default()
+        });
 
         assert_eq!(state.stat_list(StatListKind::Global), &vec!["kills".to_string()]);
         assert_eq!(state.stat_list(StatListKind::Wvw), &vec!["wvw_rank".to_string()]);
@@ -248,12 +212,15 @@ mod tests {
         assert_eq!(state.stat_list(StatListKind::Pve), &vec!["karma".to_string()]);
 
         state.stat_list_mut(StatListKind::Pve).push("gold".to_string());
-        assert_eq!(state.pve_selected_stats, vec!["karma".to_string(), "gold".to_string()]);
+        assert_eq!(state.config.pve_selected_stats, vec!["karma".to_string(), "gold".to_string()]);
     }
 
     #[test]
     fn poller_updates_state_and_stops_on_shutdown() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
+        let shared = Arc::new(Mutex::new(AppState::new(Config {
+            api_key: Some("test-key".to_string()),
+            ..Default::default()
+        })));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -293,19 +260,22 @@ mod tests {
 
     #[test]
     fn new_state_with_api_key_starts_pending_not_awaiting_api_key() {
-        let state = AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false);
+        let state = AppState::new(Config {
+            api_key: Some("test-key".to_string()),
+            ..Default::default()
+        });
         assert!(matches!(state.status, PollStatus::Pending));
     }
 
     #[test]
     fn new_state_without_api_key_starts_awaiting_api_key() {
-        let state = AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false);
+        let state = AppState::new(Config::default());
         assert!(matches!(state.status, PollStatus::AwaitingApiKey));
     }
 
     #[test]
     fn poller_without_api_key_never_calls_fetch() {
-        let shared = Arc::new(Mutex::new(AppState::new(None, vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
+        let shared = Arc::new(Mutex::new(AppState::new(Config::default())));
         let call_count = Arc::new(AtomicUsize::new(0));
         let fetch_call_count = call_count.clone();
 
@@ -339,7 +309,10 @@ mod tests {
 
     #[test]
     fn poller_records_fetch_errors_without_crashing() {
-        let shared = Arc::new(Mutex::new(AppState::new(Some("bad-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
+        let shared = Arc::new(Mutex::new(AppState::new(Config {
+            api_key: Some("bad-key".to_string()),
+            ..Default::default()
+        })));
         let fetch = |_key: &str, _shutdown: &AtomicBool| Err("401 Unauthorized".to_string());
 
         let mut poller = Poller::spawn(shared.clone(), Duration::from_millis(20), fetch);
@@ -356,7 +329,10 @@ mod tests {
         // cancellation between several sequential steps, rather than
         // instantly - `stop()` must not need to wait for the whole
         // simulated call to finish, just for it to notice `shutdown`.
-        let shared = Arc::new(Mutex::new(AppState::new(Some("test-key".to_string()), vec![], vec![], vec![], vec![], 0.35, 1.0, false, [1.0, 0.85, 0.3, 1.0], [1.0, 0.85, 0.3, 1.0], false, false)));
+        let shared = Arc::new(Mutex::new(AppState::new(Config {
+            api_key: Some("test-key".to_string()),
+            ..Default::default()
+        })));
         let started = Arc::new(AtomicUsize::new(0));
         let fetch_started = started.clone();
 

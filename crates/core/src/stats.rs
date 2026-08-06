@@ -306,6 +306,38 @@ pub fn is_regression_guarded(id: &str) -> bool {
         .any(|s| s.id == id && matches!(s.source, StatSource::Achievement(_) | StatSource::Deaths))
 }
 
+/// Whether `id` has a meaningful Lifetime Value. False only for the three
+/// MumbleLink-sourced stats (Session Timer, Combat Time, Distance
+/// Traveled) - they have no lifetime total to report, only a session-scoped
+/// measurement. Every other stat, including the Ratio Stats (KDR, PvP KDR)
+/// and `PvpCustomWins`/`PvpCustomLosses`, has one.
+pub fn has_lifetime(id: &str) -> bool {
+    STAT_CATALOG.iter().any(|s| {
+        s.id == id
+            && !matches!(
+                s.source,
+                StatSource::SessionTimer | StatSource::CombatTime | StatSource::DistanceTraveled
+            )
+    })
+}
+
+/// Whether `id` has a meaningful Session Rate (`session_value /
+/// elapsed_hours`). False for Ratio Stats (KDR, PvP KDR - a rate of a
+/// ratio isn't a meaningful number) and for Session Timer/Combat Time (a
+/// rate of elapsed time is always ~1). Distance Traveled *does* get a
+/// rate despite being MumbleLink-sourced like the other two - unlike
+/// `has_lifetime`, this exclusion set is not "all MumbleLink stats".
+/// Every other stat, including `PvpCustomWins`/`PvpCustomLosses`, has one.
+pub fn has_rate(id: &str) -> bool {
+    STAT_CATALOG.iter().any(|s| {
+        s.id == id
+            && !matches!(
+                s.source,
+                StatSource::Kdr | StatSource::PvpKdr | StatSource::SessionTimer | StatSource::CombatTime
+            )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -621,5 +653,51 @@ mod tests {
         let snap = snapshot(0, &[(239, 7)], 0);
         let values = compute_lifetime_values(&snap);
         assert_eq!(values["pvp_kdr"], 7.0);
+    }
+
+    #[test]
+    fn mumblelink_stats_have_no_lifetime_value() {
+        assert!(!has_lifetime("session_timer"));
+        assert!(!has_lifetime("combat_time"));
+        assert!(!has_lifetime("distance_traveled"));
+    }
+
+    #[test]
+    fn ratio_stats_and_ordinary_stats_have_a_lifetime_value() {
+        assert!(has_lifetime("kdr"));
+        assert!(has_lifetime("pvp_kdr"));
+        assert!(has_lifetime("kills"));
+        assert!(has_lifetime("gold"));
+    }
+
+    #[test]
+    fn unknown_stat_id_has_no_lifetime_value() {
+        assert!(!has_lifetime("does_not_exist"));
+    }
+
+    #[test]
+    fn ratio_stats_and_session_only_timers_have_no_rate() {
+        assert!(!has_rate("kdr"));
+        assert!(!has_rate("pvp_kdr"));
+        assert!(!has_rate("session_timer"));
+        assert!(!has_rate("combat_time"));
+    }
+
+    #[test]
+    fn distance_traveled_has_a_rate_despite_being_mumblelink_sourced() {
+        assert!(has_rate("distance_traveled"));
+    }
+
+    #[test]
+    fn ordinary_stats_have_a_rate() {
+        assert!(has_rate("kills"));
+        assert!(has_rate("gold"));
+        assert!(has_rate("pvp_custom_wins"));
+        assert!(has_rate("pvp_custom_losses"));
+    }
+
+    #[test]
+    fn unknown_stat_id_has_no_rate() {
+        assert!(!has_rate("does_not_exist"));
     }
 }

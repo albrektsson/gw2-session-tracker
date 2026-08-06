@@ -6,6 +6,8 @@ use nexus::{
     imgui::Ui,
     keybind::{keybind_handler, register_keybind_with_string},
     paths::get_addon_dir,
+    quick_access::{add_quick_access, remove_quick_access},
+    texture::get_texture_or_create_from_memory,
     AddonFlags,
 };
 use std::{
@@ -43,6 +45,34 @@ static ADDON: Mutex<Option<Addon>> = Mutex::new(None);
 /// keybind the user has since rebound) as a "default" hint in UI copy.
 pub(crate) const SETTINGS_KEYBIND_DEFAULT: &str = "ALT+SHIFT+E";
 
+/// `remove_quick_access` is keyed only by this identifier string (not by
+/// the `Revertible` `add_quick_access` returns), so `load()`, `unload()`,
+/// and the Window Behavior tab's live toggle all just reference it by
+/// name rather than needing to hold anything.
+pub(crate) const QUICK_ACCESS_IDENTIFIER: &str = "SESSION_TRACKER_QUICK_ACCESS";
+const QUICK_ACCESS_TEXTURE_IDENTIFIER: &str = "SESSION_TRACKER_QUICK_ACCESS_ICON";
+
+/// Registers the quick-access menu icon, reusing the vendored stopwatch
+/// icon (`ui/icons.rs`, already used for the Session Timer stat) rather
+/// than a dedicated asset. Left un-`revert_on_unload()`'d - removal is
+/// handled explicitly by identifier in `unload()`/the live toggle instead,
+/// since `remove_quick_access` doesn't need the `Revertible` this returns.
+pub(crate) fn register_quick_access() {
+    let Some(bytes) = ui::icons::embedded_icon_bytes("session_timer") else {
+        log::warn!("quick access icon bytes missing; skipping quick access registration");
+        return;
+    };
+    get_texture_or_create_from_memory(QUICK_ACCESS_TEXTURE_IDENTIFIER, bytes);
+    add_quick_access(
+        QUICK_ACCESS_IDENTIFIER,
+        QUICK_ACCESS_TEXTURE_IDENTIFIER,
+        QUICK_ACCESS_TEXTURE_IDENTIFIER,
+        "SESSION_TRACKER_TOGGLE_MAIN",
+        "Session Tracker",
+    )
+    .leak();
+}
+
 nexus::export! {
     name: "Session Tracker",
     signature: -0x57565757,
@@ -73,20 +103,12 @@ fn load() {
         config.api_key.is_some()
     );
 
-    let shared = Arc::new(Mutex::new(AppState::new(
-        config.api_key,
-        config.selected_stats,
-        config.wvw_selected_stats,
-        config.pvp_selected_stats,
-        config.pve_selected_stats,
-        config.background_opacity,
-        config.text_scale,
-        config.bold_text,
-        config.text_color,
-        config.icon_color,
-        config.show_settings,
-        config.show_main,
-    )));
+    let menu_icon_enabled = config.menu_icon_enabled;
+    let shared = Arc::new(Mutex::new(AppState::new(config)));
+
+    if menu_icon_enabled {
+        register_quick_access();
+    }
 
     register_render(RenderType::Render, render!(render_frame)).revert_on_unload();
 
@@ -116,7 +138,7 @@ fn load() {
         let result = fetch_snapshot(api_key, shutdown).map_err(|err| err.to_string());
         let icon_urls = {
             let state = lock_recover(&shared_for_icons);
-            session_tracker_core::stat_list::icon_urls_for_selected(&state.selected_stats)
+            session_tracker_core::stat_list::icon_urls_for_selected(&state.config.selected_stats)
         };
         session_tracker_net::icon_cache::cache_missing_icons(&icon_cache_dir, &icon_urls, shutdown);
         result
@@ -134,21 +156,36 @@ fn load() {
 fn toggle_show_settings() {
     let guard = lock_recover(&ADDON);
     if let Some(addon) = guard.as_ref() {
-        addon.app.mutate_and_persist(|state| state.show_settings = !state.show_settings);
+        addon.app.mutate_and_persist(|state| state.config.show_settings = !state.config.show_settings);
     }
 }
 
 fn toggle_show_main() {
     let guard = lock_recover(&ADDON);
     if let Some(addon) = guard.as_ref() {
-        addon.app.mutate_and_persist(|state| state.show_main = !state.show_main);
+        addon.app.mutate_and_persist(|state| state.config.show_main = !state.config.show_main);
     }
 }
 
 fn unload() {
     log::info!("Session Tracker addon unloading");
+    // Idempotent by identifier - a no-op if quick access was never
+    // registered (menu_icon_enabled was false at load time).
+    remove_quick_access(QUICK_ACCESS_IDENTIFIER);
     // Dropping the `Addon` stops the poller (`Poller::drop`).
     lock_recover(&ADDON).take();
+}
+
+/// Registers or deregisters the quick-access icon to match a live change
+/// of `menu_icon_enabled` from the settings UI - a direct one-shot call
+/// rather than something polled every render frame, matching how
+/// `toggle_show_settings`/`toggle_show_main` are one-shot too.
+pub(crate) fn set_quick_access_enabled(enabled: bool) {
+    if enabled {
+        register_quick_access();
+    } else {
+        remove_quick_access(QUICK_ACCESS_IDENTIFIER);
+    }
 }
 
 /// Render callback for the main render pass. `nexus::gui::render!` requires
@@ -177,7 +214,7 @@ fn render_frame(ui: &Ui) {
             );
             state.current_map_group = session_tracker_core::map_context::map_group_for(link.context.map_type);
         }
-        (state.show_settings, state.show_main)
+        (state.config.show_settings, state.config.show_main)
     };
 
     if show_settings {

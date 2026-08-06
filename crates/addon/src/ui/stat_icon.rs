@@ -68,7 +68,7 @@ pub fn render_stat_icon(stat: &StatDef, state: &AppState, cache_dir: &Path, icon
         render_icon(&identifier, tier.icon_url, cache_dir, icon_size, ui);
     } else if let Some(bytes) = embedded_icon_bytes(stat.id) {
         let identifier = format!("SESSION_TRACKER_ICON_EMBED_{}", stat.id);
-        render_embedded_icon(&identifier, bytes, icon_size, state.icon_color, ui);
+        render_embedded_icon(&identifier, bytes, icon_size, state.config.icon_color, ui);
     } else if let Some(icon_url) = stat.icon_url {
         let identifier = format!("SESSION_TRACKER_ICON_{icon_url}");
         render_icon(&identifier, icon_url, cache_dir, icon_size, ui);
