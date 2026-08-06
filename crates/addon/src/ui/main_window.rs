@@ -108,7 +108,7 @@ fn build_row_segments(state: &AppState, stat: &StatDef) -> Vec<(usize, RowField,
                 },
                 RowField::Rate => RowSegment::Text {
                     color: state.config.value_color,
-                    text: format_value(stat.id, state.session.session_rate(stat.id), coin_format),
+                    text: format_value(stat.id, state.session.displayed_rate(stat.id), coin_format),
                 },
             };
             (index, field, segment)
@@ -171,7 +171,8 @@ const HISTORY_TOOLTIP_ROWS: usize = 10;
 /// Rich hover tooltip for one stat: icon+name header, a Lifetime section
 /// (omitted for the MumbleLink stats - `stats::has_lifetime`), a Session
 /// section (Value, Rate when `stats::has_rate` applies, and the session's
-/// overall elapsed Duration), and a history table of the most recent
+/// overall elapsed Duration - omitted for Session Timer, whose Value line
+/// already is that same number), and a history table of the most recent
 /// History Snapshots.
 fn render_stat_tooltip(ui: &Ui, state: &AppState, stat: &StatDef, cache_dir: &Path, icon_size: f32) {
     ui.tooltip(|| {
@@ -191,11 +192,15 @@ fn render_stat_tooltip(ui: &Ui, state: &AppState, stat: &StatDef, cache_dir: &Pa
         let session_value = format_value(stat.id, state.session.session_amount(stat.id), coin_format);
         ui.text(format!("  Value: {session_value}"));
         if stats::has_rate(stat.id) {
-            let rate = format_value(stat.id, state.session.session_rate(stat.id), coin_format);
+            let rate = format_value(stat.id, state.session.displayed_rate(stat.id), coin_format);
             ui.text(format!("  Rate: {rate}/hr"));
         }
-        let duration = format_duration(state.session.elapsed().as_secs_f64());
-        ui.text(format!("  Duration: {duration}"));
+        // Session Timer's own Value line above *is* the session's elapsed
+        // time, so a Duration line here would just repeat it.
+        if stat.id != "session_timer" {
+            let duration = format_duration(state.session.elapsed().as_secs_f64());
+            ui.text(format!("  Duration: {duration}"));
+        }
 
         render_history_table(ui, state, stat);
     });

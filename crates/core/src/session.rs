@@ -124,16 +124,33 @@ impl SessionTracker {
         }
     }
 
-    /// Session Rate: `session_amount(id) / elapsed_hours`, `0.0` before the
-    /// session has accumulated any elapsed time. Not meaningful for every
-    /// stat - see `stats::has_rate` for which ids should actually display
-    /// this.
-    pub fn session_rate(&self, id: &str) -> f64 {
-        let elapsed_hours = self.elapsed().as_secs_f64() / 3600.0;
+    fn rate_over(value: f64, elapsed: Duration) -> f64 {
+        let elapsed_hours = elapsed.as_secs_f64() / 3600.0;
         if elapsed_hours <= 0.0 {
             0.0
         } else {
-            self.session_amount(id) / elapsed_hours
+            value / elapsed_hours
+        }
+    }
+
+    /// Session Rate: `session_amount(id) / elapsed_hours`, `0.0` before the
+    /// session has accumulated any elapsed time. Not meaningful for every
+    /// stat - see `stats::has_rate` for which ids should actually display
+    /// this. Recomputed against the live elapsed time on every call, so it
+    /// changes continuously - see `displayed_rate` for the stabler number
+    /// UI should actually show.
+    pub fn session_rate(&self, id: &str) -> f64 {
+        Self::rate_over(self.session_amount(id), self.elapsed())
+    }
+
+    /// `session_rate`, but sampled from the most recent History Snapshot
+    /// instead of the live elapsed time, so it only changes once per
+    /// Snapshot (~5 minutes) instead of drifting every frame. Falls back
+    /// to the live `session_rate` before the first Snapshot exists.
+    pub fn displayed_rate(&self, id: &str) -> f64 {
+        match self.history.entries.last() {
+            Some(snapshot) => Self::rate_over(snapshot.values.get(id).copied().unwrap_or(0.0), snapshot.elapsed),
+            None => self.session_rate(id),
         }
     }
 
@@ -474,6 +491,27 @@ mod tests {
     fn session_rate_is_zero_before_the_session_has_started() {
         let tracker = SessionTracker::new();
         assert_eq!(tracker.session_rate("gold"), 0.0);
+    }
+
+    #[test]
+    fn displayed_rate_uses_the_most_recent_history_snapshot_not_live_elapsed() {
+        let mut tracker = SessionTracker::new();
+        tracker.history.entries.push(HistorySnapshot { elapsed: Duration::from_secs(1800), values: values(&[("kills", 15.0)]) });
+        assert_eq!(tracker.displayed_rate("kills"), 30.0);
+    }
+
+    #[test]
+    fn displayed_rate_uses_the_last_snapshot_when_several_exist() {
+        let mut tracker = SessionTracker::new();
+        tracker.history.entries.push(HistorySnapshot { elapsed: Duration::from_secs(1800), values: values(&[("kills", 15.0)]) });
+        tracker.history.entries.push(HistorySnapshot { elapsed: Duration::from_secs(3600), values: values(&[("kills", 40.0)]) });
+        assert_eq!(tracker.displayed_rate("kills"), 40.0);
+    }
+
+    #[test]
+    fn displayed_rate_falls_back_to_the_live_session_rate_before_any_snapshot_exists() {
+        let tracker = SessionTracker::new();
+        assert_eq!(tracker.displayed_rate("gold"), tracker.session_rate("gold"));
     }
 
     #[test]

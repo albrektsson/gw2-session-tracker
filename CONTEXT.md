@@ -26,7 +26,7 @@ A Stat whose value is one Stat divided by another (e.g. KDR = kills / deaths) ra
 _Avoid_: Computed stat, derived stat
 
 **Session Rate**:
-A Stat's Session Value divided by the Session's elapsed time in hours (`session_value / elapsed_hours`), computed identically everywhere it's shown. Not defined for Ratio Stats (a per-hour rate of a ratio isn't meaningful) or for Session Timer/Combat Time (their session value is the elapsed/combat time itself, so a rate of it is either circular or degenerate).
+A Stat's Session Value divided by the Session's elapsed time in hours (`session_value / elapsed_hours`), computed identically everywhere it's shown. Not defined for Ratio Stats (a per-hour rate of a ratio isn't meaningful) or for Session Timer/Combat Time (their session value is the elapsed/combat time itself, so a rate of it is either circular or degenerate). UI displays it sampled from the most recent History Snapshot rather than live (`SessionTracker::displayed_rate`), so it only changes once per Snapshot instead of drifting every frame; falls back to the live formula before the first Snapshot exists.
 _Avoid_: Per-hour value, hourly rate, gph (game-specific)
 
 **Session**:
