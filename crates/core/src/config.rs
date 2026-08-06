@@ -319,9 +319,11 @@ mod tests {
 
     #[test]
     fn remove_row_field_does_not_panic_when_row_separator_visible_is_under_sized() {
-        let mut config = Config::default();
-        config.row_fields = vec![RowField::Icon, RowField::Session, RowField::Lifetime, RowField::Rate];
-        config.row_separator_visible = vec![false, true];
+        let mut config = Config {
+            row_fields: vec![RowField::Icon, RowField::Session, RowField::Lifetime, RowField::Rate],
+            row_separator_visible: vec![false, true],
+            ..Default::default()
+        };
         config.remove_row_field(3);
         assert_eq!(config.row_fields, vec![RowField::Icon, RowField::Session, RowField::Lifetime]);
         assert_eq!(config.row_separator_visible, vec![false, true]);
@@ -401,9 +403,11 @@ mod tests {
 
     #[test]
     fn remove_row_field_from_the_middle_keeps_the_left_gap() {
-        let mut config = Config::default();
-        config.row_fields = vec![RowField::Icon, RowField::Name, RowField::Session];
-        config.row_separator_visible = vec![false, true];
+        let mut config = Config {
+            row_fields: vec![RowField::Icon, RowField::Name, RowField::Session],
+            row_separator_visible: vec![false, true],
+            ..Default::default()
+        };
         config.remove_row_field(1);
         assert_eq!(config.row_fields, vec![RowField::Icon, RowField::Session]);
         assert_eq!(config.row_separator_visible, vec![false]);
@@ -411,9 +415,11 @@ mod tests {
 
     #[test]
     fn remove_row_field_from_the_start_drops_its_only_gap() {
-        let mut config = Config::default();
-        config.row_fields = vec![RowField::Icon, RowField::Session, RowField::Lifetime];
-        config.row_separator_visible = vec![false, true];
+        let mut config = Config {
+            row_fields: vec![RowField::Icon, RowField::Session, RowField::Lifetime],
+            row_separator_visible: vec![false, true],
+            ..Default::default()
+        };
         config.remove_row_field(0);
         assert_eq!(config.row_fields, vec![RowField::Session, RowField::Lifetime]);
         assert_eq!(config.row_separator_visible, vec![true]);
@@ -421,9 +427,11 @@ mod tests {
 
     #[test]
     fn remove_row_field_from_the_end_drops_its_only_gap() {
-        let mut config = Config::default();
-        config.row_fields = vec![RowField::Icon, RowField::Session, RowField::Lifetime];
-        config.row_separator_visible = vec![false, true];
+        let mut config = Config {
+            row_fields: vec![RowField::Icon, RowField::Session, RowField::Lifetime],
+            row_separator_visible: vec![false, true],
+            ..Default::default()
+        };
         config.remove_row_field(2);
         assert_eq!(config.row_fields, vec![RowField::Icon, RowField::Session]);
         assert_eq!(config.row_separator_visible, vec![false]);
