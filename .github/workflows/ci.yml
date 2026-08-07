@@ -51,7 +51,7 @@ jobs:
         run: cargo test --locked -p session_tracker_net --test live_api -- --ignored
       - name: cargo clippy
         run: cargo clippy --locked -p session_tracker_core -p session_tracker_net --all-targets -- -D warnings
-      - uses: taiki-e/install-action@18b1216eba7f8039b0f8d131d5473787f0edce68 # ratchet:taiki-e/install-action@v2
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # ratchet:taiki-e/install-action@v2
         with:
           tool: cargo-deny,cargo-machete
       - name: cargo deny check
