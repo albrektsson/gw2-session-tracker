@@ -48,4 +48,9 @@ pub fn render_formatting_tab(ui: &Ui, app: &AppHandle) {
     if ui.checkbox("Hide stats with zero Session and Lifetime value", &mut hide_zero_stats) {
         app.mutate_and_persist(|state| state.config.hide_zero_stats = hide_zero_stats);
     }
+
+    let mut show_last_updated_banner = app.lock().config.show_last_updated_banner;
+    if ui.checkbox("Show \"Last updated\" banner", &mut show_last_updated_banner) {
+        app.mutate_and_persist(|state| state.config.show_last_updated_banner = show_last_updated_banner);
+    }
 }

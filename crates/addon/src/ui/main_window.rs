@@ -347,7 +347,9 @@ pub fn render_main_window(ui: &Ui, app: &AppHandle) {
             return;
         }
 
-        if let Some(last_updated) = state.last_updated {
+        if state.config.show_last_updated_banner
+            && let Some(last_updated) = state.last_updated
+        {
             let secs_ago = Instant::now().saturating_duration_since(last_updated).as_secs();
             let text = format!("Last updated {secs_ago}s ago");
             if secs_ago >= STALE_DATA_THRESHOLD_SECS {

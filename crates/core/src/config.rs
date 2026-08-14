@@ -86,6 +86,8 @@ pub struct Config {
     pub coin_format: String,
     #[serde(default)]
     pub hide_zero_stats: bool,
+    #[serde(default = "default_show_last_updated_banner")]
+    pub show_last_updated_banner: bool,
 }
 
 impl Config {
@@ -155,6 +157,7 @@ impl Default for Config {
             click_through_enabled: false,
             coin_format: default_coin_format(),
             hide_zero_stats: false,
+            show_last_updated_banner: default_show_last_updated_banner(),
         }
     }
 }
@@ -226,6 +229,10 @@ fn default_coin_format() -> String {
     "{g}g {s}s {c}c".to_string()
 }
 
+fn default_show_last_updated_banner() -> bool {
+    true
+}
+
 const CONFIG_FILE_NAME: &str = "session_tracker_config.json";
 
 pub fn load_config(dir: &Path) -> Config {
@@ -290,6 +297,7 @@ mod tests {
             click_through_enabled: true,
             coin_format: "{g}g".to_string(),
             hide_zero_stats: true,
+            show_last_updated_banner: false,
         };
         save_config(dir.path(), &config).unwrap();
         let loaded = load_config(dir.path());
@@ -363,6 +371,7 @@ mod tests {
         assert!(!config.click_through_enabled);
         assert_eq!(config.coin_format, default_coin_format());
         assert!(!config.hide_zero_stats);
+        assert!(config.show_last_updated_banner);
     }
 
     #[test]
