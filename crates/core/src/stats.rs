@@ -1,5 +1,6 @@
 use crate::api::ApiSnapshot;
 use crate::category::Category;
+use crate::map_context::MapGroup;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +25,7 @@ pub enum StatSource {
     SessionTimer,
     DistanceTraveled,
     CombatTime,
+    MapGroupTime(MapGroup),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -86,6 +88,9 @@ const CORE_STATS: &[StatDef] = &[
     StatDef { id: "session_timer", display_name: "Session Timer", source: StatSource::SessionTimer, categories: &[], icon_url: None },
     StatDef { id: "distance_traveled", display_name: "Distance Traveled", source: StatSource::DistanceTraveled, categories: &[], icon_url: None },
     StatDef { id: "combat_time", display_name: "Combat Time", source: StatSource::CombatTime, categories: &[], icon_url: None },
+    StatDef { id: "time_in_wvw", display_name: "Time in WvW", source: StatSource::MapGroupTime(MapGroup::Wvw), categories: &[], icon_url: None },
+    StatDef { id: "time_in_pvp", display_name: "Time in PvP", source: StatSource::MapGroupTime(MapGroup::Pvp), categories: &[], icon_url: None },
+    StatDef { id: "time_in_pve", display_name: "Time in PvE", source: StatSource::MapGroupTime(MapGroup::Pve), categories: &[], icon_url: None },
     // WvW
     StatDef { id: "kills", display_name: "Kills", source: StatSource::Achievement(283), categories: &[Wvw], icon_url: None },
     StatDef { id: "deaths", display_name: "Deaths", source: StatSource::Deaths, categories: &[Wvw, Pvp, Misc], icon_url: None },
@@ -269,7 +274,9 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
             | StatSource::PvpCustomLosses => continue,
             // client-computed at render time (elapsed time / MumbleLink
             // position / MumbleLink combat flag), not from any snapshot field
-            StatSource::SessionTimer | StatSource::DistanceTraveled | StatSource::CombatTime => continue,
+            StatSource::SessionTimer | StatSource::DistanceTraveled | StatSource::CombatTime | StatSource::MapGroupTime(_) => {
+                continue;
+            }
         };
         values.insert(stat.id, value);
     }
@@ -308,32 +315,38 @@ pub fn is_regression_guarded(id: &str) -> bool {
 
 /// Whether `id` has a meaningful Lifetime Value. False only for the three
 /// MumbleLink-sourced stats (Session Timer, Combat Time, Distance
-/// Traveled) - they have no lifetime total to report, only a session-scoped
-/// measurement. Every other stat, including the Ratio Stats (KDR, PvP KDR)
-/// and `PvpCustomWins`/`PvpCustomLosses`, has one.
+/// Traveled, Time in WvW/PvP/PvE) - they have no lifetime total to report,
+/// only a session-scoped measurement. Every other stat, including the
+/// Ratio Stats (KDR, PvP KDR) and `PvpCustomWins`/`PvpCustomLosses`, has
+/// one.
 pub fn has_lifetime(id: &str) -> bool {
     STAT_CATALOG.iter().any(|s| {
         s.id == id
             && !matches!(
                 s.source,
-                StatSource::SessionTimer | StatSource::CombatTime | StatSource::DistanceTraveled
+                StatSource::SessionTimer | StatSource::CombatTime | StatSource::DistanceTraveled | StatSource::MapGroupTime(_)
             )
     })
 }
 
 /// Whether `id` has a meaningful Session Rate (`session_value /
 /// elapsed_hours`). False for Ratio Stats (KDR, PvP KDR - a rate of a
-/// ratio isn't a meaningful number) and for Session Timer/Combat Time (a
-/// rate of elapsed time is always ~1). Distance Traveled *does* get a
-/// rate despite being MumbleLink-sourced like the other two - unlike
-/// `has_lifetime`, this exclusion set is not "all MumbleLink stats".
-/// Every other stat, including `PvpCustomWins`/`PvpCustomLosses`, has one.
+/// ratio isn't a meaningful number) and for Session Timer/Combat
+/// Time/Time in WvW/PvP/PvE (a rate of elapsed time is always ~1 or
+/// meaningless). Distance Traveled *does* get a rate despite being
+/// MumbleLink-sourced like the others - unlike `has_lifetime`, this
+/// exclusion set is not "all MumbleLink stats". Every other stat,
+/// including `PvpCustomWins`/`PvpCustomLosses`, has one.
 pub fn has_rate(id: &str) -> bool {
     STAT_CATALOG.iter().any(|s| {
         s.id == id
             && !matches!(
                 s.source,
-                StatSource::Kdr | StatSource::PvpKdr | StatSource::SessionTimer | StatSource::CombatTime
+                StatSource::Kdr
+                    | StatSource::PvpKdr
+                    | StatSource::SessionTimer
+                    | StatSource::CombatTime
+                    | StatSource::MapGroupTime(_)
             )
     })
 }
@@ -414,9 +427,9 @@ mod tests {
     }
 
     #[test]
-    fn catalog_has_eight_hundred_five_stats() {
-        // 1 session timer + 1 distance traveled + 1 combat time + 17 WvW + 12 PvP + 67 currencies + 33 items + 673 material storage items
-        assert_eq!(STAT_CATALOG.len(), 805);
+    fn catalog_has_eight_hundred_eight_stats() {
+        // 1 session timer + 1 distance traveled + 1 combat time + 3 time-in-group + 17 WvW + 12 PvP + 67 currencies + 33 items + 673 material storage items
+        assert_eq!(STAT_CATALOG.len(), 808);
     }
 
     #[test]
@@ -660,6 +673,14 @@ mod tests {
         assert!(!has_lifetime("session_timer"));
         assert!(!has_lifetime("combat_time"));
         assert!(!has_lifetime("distance_traveled"));
+    }
+
+    #[test]
+    fn time_in_group_stats_have_no_lifetime_and_no_rate() {
+        for id in ["time_in_wvw", "time_in_pvp", "time_in_pve"] {
+            assert!(!has_lifetime(id));
+            assert!(!has_rate(id));
+        }
     }
 
     #[test]

@@ -88,6 +88,8 @@ pub struct Config {
     pub hide_zero_stats: bool,
     #[serde(default = "default_show_last_updated_banner")]
     pub show_last_updated_banner: bool,
+    #[serde(default)]
+    pub scope_stats_to_active_map_group: bool,
 }
 
 impl Config {
@@ -158,6 +160,7 @@ impl Default for Config {
             coin_format: default_coin_format(),
             hide_zero_stats: false,
             show_last_updated_banner: default_show_last_updated_banner(),
+            scope_stats_to_active_map_group: false,
         }
     }
 }
@@ -298,6 +301,7 @@ mod tests {
             coin_format: "{g}g".to_string(),
             hide_zero_stats: true,
             show_last_updated_banner: false,
+            scope_stats_to_active_map_group: true,
         };
         save_config(dir.path(), &config).unwrap();
         let loaded = load_config(dir.path());
@@ -372,6 +376,7 @@ mod tests {
         assert_eq!(config.coin_format, default_coin_format());
         assert!(!config.hide_zero_stats);
         assert!(config.show_last_updated_banner);
+        assert!(!config.scope_stats_to_active_map_group);
     }
 
     #[test]

@@ -74,4 +74,12 @@ pub fn render_window_behavior_tab(ui: &Ui, app: &AppHandle) {
         app.mutate_and_persist(|state| state.config.menu_icon_enabled = menu_icon_enabled);
         crate::set_quick_access_enabled(menu_icon_enabled);
     }
+
+    ui.separator();
+
+    let mut scope_stats_to_active_map_group = app.lock().config.scope_stats_to_active_map_group;
+    if ui.checkbox("Scope Session Value/Rate to time in the active WvW/PvP/PvE map", &mut scope_stats_to_active_map_group) {
+        app.mutate_and_persist(|state| state.config.scope_stats_to_active_map_group = scope_stats_to_active_map_group);
+    }
+    ui.text_disabled("Applies only to stats on a WvW/PvP/PvE list - Global-list stats always use whole-session numbers.");
 }

@@ -189,7 +189,9 @@ fn render_frame(ui: &Ui) {
             state.session.sample_combat_state(
                 link.context.ui_state.contains(nexus::data_link::mumble::UiState::IS_IN_COMBAT),
             );
-            state.current_map_group = session_tracker_core::map_context::map_group_for(link.context.map_type);
+            let group = session_tracker_core::map_context::map_group_for(link.context.map_type);
+            state.session.sample_map_group(group);
+            state.current_map_group = group;
         }
         state.config.show_main
     };

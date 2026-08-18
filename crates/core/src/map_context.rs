@@ -1,8 +1,12 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MapGroup {
     Wvw,
     Pvp,
     Pve,
+}
+
+impl MapGroup {
+    pub const ALL: [MapGroup; 3] = [MapGroup::Wvw, MapGroup::Pvp, MapGroup::Pve];
 }
 
 // Mirrors gw2_mumble::map_type (not a dependency of this crate - see

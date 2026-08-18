@@ -14,7 +14,8 @@ thread_local! {
 // Stats with no `Category` at all (client-computed, not browsable by
 // activity type) are pinned above the category tree instead of inside it -
 // `stats_in_category` below would never match them otherwise.
-const PINNED_STAT_IDS: &[&str] = &["session_timer", "distance_traveled", "combat_time"];
+const PINNED_STAT_IDS: &[&str] =
+    &["session_timer", "distance_traveled", "combat_time", "time_in_wvw", "time_in_pvp", "time_in_pve"];
 
 const ICON_SIZE: f32 = 16.0;
 

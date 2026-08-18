@@ -5,6 +5,7 @@ use session_tracker_core::{
     config::{RowField, WindowAnchor},
     format::{format_coin, format_distance, format_duration, format_ratio, format_thousands},
     map_context::MapGroup,
+    session::SessionTracker,
     stat_list::resolve_selected_stats,
     stats::{self, StatDef},
 };
@@ -26,9 +27,43 @@ fn format_value(id: &str, value: f64, coin_format: &str) -> String {
     match id {
         "gold" => format_coin(value, coin_format),
         "kdr" | "pvp_kdr" => format_ratio(value),
-        "session_timer" | "combat_time" => format_duration(value),
+        "session_timer" | "combat_time" | "time_in_wvw" | "time_in_pvp" | "time_in_pve" => format_duration(value),
         "distance_traveled" => format_distance(value),
         _ => format_thousands(value),
+    }
+}
+
+/// Which numbers a stat's row draws from: the whole Session (today's
+/// behavior, always used for Global-list stats) or one `MapGroup`'s
+/// scoped numbers (used for a WvW/PvP/PvE-list stat when
+/// `Config::scope_stats_to_active_map_group` is on). Kept local to this
+/// file - it's a rendering-layer decision, not a `SessionTracker` concept.
+#[derive(Debug, Clone, Copy)]
+enum RowScope {
+    Global,
+    Group(MapGroup),
+}
+
+impl RowScope {
+    fn amount(self, session: &SessionTracker, id: &str) -> f64 {
+        match self {
+            RowScope::Global => session.session_amount(id),
+            RowScope::Group(group) => session.group_session_amount(group, id),
+        }
+    }
+
+    fn rate(self, session: &SessionTracker, id: &str) -> f64 {
+        match self {
+            RowScope::Global => session.displayed_rate(id),
+            RowScope::Group(group) => session.group_displayed_rate(group, id),
+        }
+    }
+
+    fn elapsed(self, session: &SessionTracker) -> std::time::Duration {
+        match self {
+            RowScope::Global => session.elapsed(),
+            RowScope::Group(group) => session.group_elapsed(group),
+        }
     }
 }
 
@@ -51,8 +86,8 @@ fn draw_text(ui: &Ui, color: [f32; 4], text: &str, bold: bool) {
 /// A stat is hidden by `hide_zero_stats` only when both its Session Value
 /// and Lifetime Value are zero; a stat with no Lifetime Value (the
 /// MumbleLink stats) falls back to judging Session Value alone.
-fn should_hide_when_zero(state: &AppState, stat: &StatDef) -> bool {
-    if state.session.session_amount(stat.id) != 0.0 {
+fn should_hide_when_zero(state: &AppState, stat: &StatDef, scope: RowScope) -> bool {
+    if scope.amount(&state.session, stat.id) != 0.0 {
         return false;
     }
     if stats::has_lifetime(stat.id) {
@@ -87,7 +122,7 @@ enum RowSegment {
     Text { color: [f32; 4], text: String },
 }
 
-fn build_row_segments(state: &AppState, stat: &StatDef) -> Vec<(usize, RowField, RowSegment)> {
+fn build_row_segments(state: &AppState, stat: &StatDef, scope: RowScope) -> Vec<(usize, RowField, RowSegment)> {
     let coin_format = state.config.coin_format.as_str();
     applicable_row_fields(&state.config.row_fields, stat.id)
         .into_iter()
@@ -100,7 +135,7 @@ fn build_row_segments(state: &AppState, stat: &StatDef) -> Vec<(usize, RowField,
                 },
                 RowField::Session => RowSegment::Text {
                     color: state.config.value_color,
-                    text: format_value(stat.id, state.session.session_amount(stat.id), coin_format),
+                    text: format_value(stat.id, scope.amount(&state.session, stat.id), coin_format),
                 },
                 RowField::Lifetime => RowSegment::Text {
                     color: state.config.value_color,
@@ -108,7 +143,7 @@ fn build_row_segments(state: &AppState, stat: &StatDef) -> Vec<(usize, RowField,
                 },
                 RowField::Rate => RowSegment::Text {
                     color: state.config.value_color,
-                    text: format_value(stat.id, state.session.displayed_rate(stat.id), coin_format),
+                    text: format_value(stat.id, scope.rate(&state.session, stat.id), coin_format),
                 },
             };
             (index, field, segment)
@@ -122,8 +157,8 @@ fn build_row_segments(state: &AppState, stat: &StatDef) -> Vec<(usize, RowField,
 /// `render_stat_icon` leaves a pending `same_line()` the caller must
 /// close with `ui.new_line()` rather than letting it bleed into the next
 /// row.
-fn render_row(ui: &Ui, state: &AppState, stat: &StatDef, cache_dir: &Path, icon_size: f32) -> bool {
-    let segments = build_row_segments(state, stat);
+fn render_row(ui: &Ui, state: &AppState, stat: &StatDef, scope: RowScope, cache_dir: &Path, icon_size: f32) -> bool {
+    let segments = build_row_segments(state, stat, scope);
     let mut fixed_column_x: Option<f32> = None;
     let mut last_was_icon = false;
     let mut prev_index: Option<usize> = None;
@@ -174,7 +209,7 @@ const HISTORY_TOOLTIP_ROWS: usize = 10;
 /// overall elapsed Duration - omitted for Session Timer, whose Value line
 /// already is that same number), and a history table of the most recent
 /// History Snapshots.
-fn render_stat_tooltip(ui: &Ui, state: &AppState, stat: &StatDef, cache_dir: &Path, icon_size: f32) {
+fn render_stat_tooltip(ui: &Ui, state: &AppState, stat: &StatDef, scope: RowScope, cache_dir: &Path, icon_size: f32) {
     ui.tooltip(|| {
         render_stat_icon(stat, state, cache_dir, icon_size, ui);
         ui.text(stat.display_name);
@@ -189,24 +224,25 @@ fn render_stat_tooltip(ui: &Ui, state: &AppState, stat: &StatDef, cache_dir: &Pa
         }
 
         ui.text("Session");
-        let session_value = format_value(stat.id, state.session.session_amount(stat.id), coin_format);
+        let session_value = format_value(stat.id, scope.amount(&state.session, stat.id), coin_format);
         ui.text(format!("  Value: {session_value}"));
         if stats::has_rate(stat.id) {
-            let rate = format_value(stat.id, state.session.displayed_rate(stat.id), coin_format);
+            let rate = format_value(stat.id, scope.rate(&state.session, stat.id), coin_format);
             ui.text(format!("  Rate: {rate}/hr"));
         }
-        // Session Timer's own Value line above *is* the session's elapsed
-        // time, so a Duration line here would just repeat it.
-        if stat.id != "session_timer" {
-            let duration = format_duration(state.session.elapsed().as_secs_f64());
+        // Session Timer's (or, group-scoped, a Time in X stat's) own Value
+        // line above *is* the elapsed time being shown, so a Duration line
+        // here would just repeat it.
+        if !matches!(stat.id, "session_timer" | "time_in_wvw" | "time_in_pvp" | "time_in_pve") {
+            let duration = format_duration(scope.elapsed(&state.session).as_secs_f64());
             ui.text(format!("  Duration: {duration}"));
         }
 
-        render_history_table(ui, state, stat);
+        render_history_table(ui, state, stat, scope);
     });
 }
 
-fn render_history_table(ui: &Ui, state: &AppState, stat: &StatDef) {
+fn render_history_table(ui: &Ui, state: &AppState, stat: &StatDef, scope: RowScope) {
     let entries = state.session.history().entries();
     if entries.is_empty() {
         return;
@@ -234,12 +270,19 @@ fn render_history_table(ui: &Ui, state: &AppState, stat: &StatDef) {
     }
 
     for snapshot in entries.iter().rev().take(HISTORY_TOOLTIP_ROWS) {
-        let value = snapshot.values.get(stat.id).copied().unwrap_or(0.0);
-        let elapsed_hours = snapshot.elapsed.as_secs_f64() / 3600.0;
+        let (elapsed, value) = match scope {
+            RowScope::Global => (snapshot.elapsed, snapshot.values.get(stat.id).copied().unwrap_or(0.0)),
+            RowScope::Group(group) => {
+                let elapsed = snapshot.group_elapsed.get(&group).copied().unwrap_or_default();
+                let value = snapshot.group_values.get(&group).and_then(|values| values.get(stat.id)).copied().unwrap_or(0.0);
+                (elapsed, value)
+            }
+        };
+        let elapsed_hours = elapsed.as_secs_f64() / 3600.0;
 
         ui.table_next_row();
         ui.table_next_column();
-        ui.text(format_duration(snapshot.elapsed.as_secs_f64()));
+        ui.text(format_duration(elapsed.as_secs_f64()));
         ui.table_next_column();
         ui.text(format_value(stat.id, value, coin_format));
         if show_rate {
@@ -359,33 +402,37 @@ pub fn render_main_window(ui: &Ui, app: &AppHandle) {
             }
         }
 
-        let mut selected = resolve_selected_stats(&state.config.selected_stats);
+        let mut rows: Vec<(&'static StatDef, RowScope)> =
+            resolve_selected_stats(&state.config.selected_stats).into_iter().map(|stat| (stat, RowScope::Global)).collect();
         if let Some(group) = state.current_map_group {
             let mode_ids = match group {
                 MapGroup::Wvw => &state.config.wvw_selected_stats,
                 MapGroup::Pvp => &state.config.pvp_selected_stats,
                 MapGroup::Pve => &state.config.pve_selected_stats,
             };
+            let scoped = state.config.scope_stats_to_active_map_group;
             for stat in resolve_selected_stats(mode_ids) {
-                if !selected.iter().any(|s| s.id == stat.id) {
-                    selected.push(stat);
+                match rows.iter_mut().find(|(existing, _)| existing.id == stat.id) {
+                    Some(existing) if scoped => existing.1 = RowScope::Group(group),
+                    Some(_) => {}
+                    None => rows.push((stat, if scoped { RowScope::Group(group) } else { RowScope::Global })),
                 }
             }
         }
         if state.config.hide_zero_stats {
-            selected.retain(|stat| !should_hide_when_zero(&state, stat));
+            rows.retain(|(stat, scope)| !should_hide_when_zero(&state, stat, *scope));
         }
-        if selected.is_empty() {
+        if rows.is_empty() {
             ui.text("No stats selected. Open Session Tracker's Options in Nexus's addon list to pick some.");
             return;
         }
 
         let icon_size = ICON_SIZE * state.config.text_scale;
 
-        for stat in selected {
-            let last_was_icon = render_row(ui, &state, stat, &cache_dir, icon_size);
+        for (stat, scope) in rows {
+            let last_was_icon = render_row(ui, &state, stat, scope, &cache_dir, icon_size);
             if ui.is_item_hovered() {
-                render_stat_tooltip(ui, &state, stat, &cache_dir, icon_size);
+                render_stat_tooltip(ui, &state, stat, scope, &cache_dir, icon_size);
             }
             if state.config.window_right_margin > 0.0 {
                 ui.same_line();
@@ -496,7 +543,7 @@ mod tests {
         // lifetime is now 0, but session_value = 0 - 10 = -10 (nonzero) -
         // isolates that a nonzero session alone is enough to not hide,
         // independent of lifetime.
-        assert!(!should_hide_when_zero(&state, stat));
+        assert!(!should_hide_when_zero(&state, stat, RowScope::Global));
     }
 
     #[test]
@@ -504,7 +551,7 @@ mod tests {
         let mut state = AppState::new(Config::default());
         state.session.update([("gold", 0.0)].into_iter().collect());
         let stat = STAT_CATALOG.iter().find(|s| s.id == "gold").unwrap();
-        assert!(should_hide_when_zero(&state, stat));
+        assert!(should_hide_when_zero(&state, stat, RowScope::Global));
     }
 
     #[test]
@@ -513,13 +560,25 @@ mod tests {
         state.session.update([("gold", 100.0)].into_iter().collect());
         state.session.reset(); // rebaselines: session value is 0, lifetime stays 100
         let stat = STAT_CATALOG.iter().find(|s| s.id == "gold").unwrap();
-        assert!(!should_hide_when_zero(&state, stat));
+        assert!(!should_hide_when_zero(&state, stat, RowScope::Global));
     }
 
     #[test]
     fn should_hide_when_zero_falls_back_to_session_alone_for_mumblelink_stats() {
         let state = AppState::new(Config::default());
         let stat = STAT_CATALOG.iter().find(|s| s.id == "session_timer").unwrap();
-        assert!(should_hide_when_zero(&state, stat));
+        assert!(should_hide_when_zero(&state, stat, RowScope::Global));
+    }
+
+    #[test]
+    fn should_hide_when_zero_uses_the_groups_own_amount_for_a_group_scoped_row() {
+        let mut state = AppState::new(Config::default());
+        state.session.sample_map_group(Some(MapGroup::Wvw));
+        state.session.update([("gold", 100.0)].into_iter().collect());
+        state.session.update([("gold", 110.0)].into_iter().collect());
+        let stat = STAT_CATALOG.iter().find(|s| s.id == "gold").unwrap();
+
+        assert!(!should_hide_when_zero(&state, stat, RowScope::Group(MapGroup::Wvw)));
+        assert!(should_hide_when_zero(&state, stat, RowScope::Group(MapGroup::Pve)));
     }
 }

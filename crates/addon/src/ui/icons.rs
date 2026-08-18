@@ -49,7 +49,7 @@ pub fn embedded_icon_bytes(stat_id: &str) -> Option<&'static [u8]> {
         "pvp_ranking_points" => Some(PVP_RANKING_POINTS),
         "pvp_wins" | "pvp_ranked_wins" | "pvp_unranked_wins" | "pvp_custom_wins" => Some(PVP_WINS),
         "pvp_losses" | "pvp_ranked_losses" | "pvp_unranked_losses" | "pvp_custom_losses" => Some(PVP_LOSSES),
-        "session_timer" => Some(STOPWATCH),
+        "session_timer" | "time_in_wvw" | "time_in_pvp" | "time_in_pve" => Some(STOPWATCH),
         "distance_traveled" => Some(RUN),
         "combat_time" => Some(CROSSED_SWORDS),
         _ => None,
