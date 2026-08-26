@@ -305,7 +305,7 @@ fn default_coin_format() -> String {
 }
 
 fn default_show_last_updated_banner() -> bool {
-    true
+    false
 }
 
 fn default_automatic_reset_minutes() -> u32 {
@@ -466,7 +466,7 @@ mod tests {
         assert!(!config.click_through_enabled);
         assert_eq!(config.coin_format, default_coin_format());
         assert!(!config.hide_zero_stats);
-        assert!(config.show_last_updated_banner);
+        assert!(!config.show_last_updated_banner);
         assert!(!config.scope_stats_to_active_map_group);
         assert_eq!(config.automatic_reset_mode, AutomaticResetMode::OnLoad);
         assert_eq!(config.automatic_reset_minutes, default_automatic_reset_minutes());
