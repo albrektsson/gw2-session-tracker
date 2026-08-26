@@ -1,5 +1,6 @@
 use crate::map_context::MapGroup;
 use crate::stats::ratio_with_fallback;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -24,6 +25,68 @@ pub struct HistorySnapshot {
     pub values: HashMap<&'static str, f64>,
     pub group_elapsed: HashMap<MapGroup, Duration>,
     pub group_values: HashMap<MapGroup, HashMap<&'static str, f64>>,
+}
+
+impl HistorySnapshot {
+    fn to_owned(&self) -> HistorySnapshotOwned {
+        HistorySnapshotOwned {
+            elapsed: self.elapsed,
+            values: owned_map(&self.values),
+            group_elapsed: self.group_elapsed.clone(),
+            group_values: self.group_values.iter().map(|(&group, values)| (group, owned_map(values))).collect(),
+        }
+    }
+}
+
+/// `HistorySnapshot` with owned string keys instead of `&'static str`, for
+/// serializing into a persisted Session state file. See `owned_map`/
+/// `interned_map` for the conversion at either boundary.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistorySnapshotOwned {
+    pub elapsed: Duration,
+    pub values: HashMap<String, f64>,
+    pub group_elapsed: HashMap<MapGroup, Duration>,
+    pub group_values: HashMap<MapGroup, HashMap<String, f64>>,
+}
+
+impl HistorySnapshotOwned {
+    fn into_interned(self) -> HistorySnapshot {
+        HistorySnapshot {
+            elapsed: self.elapsed,
+            values: interned_map(self.values),
+            group_elapsed: self.group_elapsed,
+            group_values: self.group_values.into_iter().map(|(group, values)| (group, interned_map(values))).collect(),
+        }
+    }
+}
+
+fn owned_map(map: &HashMap<&'static str, f64>) -> HashMap<String, f64> {
+    map.iter().map(|(&id, &value)| (id.to_string(), value)).collect()
+}
+
+/// The inverse of `owned_map` - looks each id up against `STAT_CATALOG` to
+/// recover the matching `&'static str`, silently dropping an id the
+/// catalog no longer has (a stat removed since the file was written).
+fn interned_map(map: HashMap<String, f64>) -> HashMap<&'static str, f64> {
+    map.into_iter().filter_map(|(id, value)| crate::stats::static_id(&id).map(|id| (id, value))).collect()
+}
+
+/// A `SessionTracker`'s state, serialized to disk so a Session can survive
+/// an addon unload/reload (see `SessionTracker::snapshot`/`restore` and
+/// `crate::session_state`). Doesn't include the transient MumbleLink
+/// sample state (`last_position`, `combat_sample`, `group_sample`) -
+/// those re-establish themselves from the next live sample after restore.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionSnapshot {
+    pub baseline: HashMap<String, f64>,
+    pub lifetime: HashMap<String, f64>,
+    pub elapsed: Duration,
+    pub distance_meters: f64,
+    pub combat_duration: Duration,
+    pub group_durations: HashMap<MapGroup, Duration>,
+    pub group_attributed: HashMap<MapGroup, HashMap<String, f64>>,
+    pub history: Vec<HistorySnapshotOwned>,
+    pub poll_count: u64,
 }
 
 /// The Session's history log: one `HistorySnapshot` of the full Stat
@@ -52,6 +115,12 @@ pub struct SessionTracker {
     baseline: Option<HashMap<&'static str, f64>>,
     lifetime: HashMap<&'static str, f64>,
     started_at: Option<Instant>,
+    /// Elapsed time accumulated across any prior run(s) of this same
+    /// Session, before `started_at` (this run's anchor). Set from a
+    /// restored `SessionSnapshot`; zero for a Session that started this
+    /// run. Keeps `elapsed()` from counting the gap while the addon
+    /// wasn't loaded - see `restore`.
+    elapsed_before_this_run: Duration,
     distance_meters: f64,
     last_position: Option<[f32; 3]>,
     combat_duration: Duration,
@@ -239,9 +308,12 @@ impl SessionTracker {
     }
 
     /// Elapsed time since the session started (the first successful poll,
-    /// or the last `reset()`). Zero if the session hasn't started yet.
+    /// or the last `reset()`), plus whatever a restored `SessionSnapshot`
+    /// carried over from prior runs (`elapsed_before_this_run`) - so time
+    /// spent with the addon unloaded between runs of the same Session
+    /// doesn't count. Zero if the session hasn't started yet.
     pub fn elapsed(&self) -> Duration {
-        self.started_at.map(|t| t.elapsed()).unwrap_or_default()
+        self.elapsed_before_this_run + self.started_at.map(|t| t.elapsed()).unwrap_or_default()
     }
 
     /// Feeds in a live player position (MumbleLink `avatar.position`,
@@ -313,6 +385,7 @@ impl SessionTracker {
     pub fn reset(&mut self) {
         self.baseline = Some(self.lifetime.clone());
         self.started_at = Some(Instant::now());
+        self.elapsed_before_this_run = Duration::ZERO;
         self.distance_meters = 0.0;
         if let Some((_, was_in_combat)) = self.combat_sample {
             self.combat_sample = Some((Instant::now(), was_in_combat));
@@ -325,6 +398,45 @@ impl SessionTracker {
         }
         self.history.entries.clear();
         self.poll_count = 0;
+    }
+
+    /// Captures this Session's state for a persisted `SessionSnapshot`, or
+    /// `None` before the Session has any data (`has_data`) - nothing
+    /// meaningful to carry across a restart yet.
+    pub fn snapshot(&self) -> Option<SessionSnapshot> {
+        let baseline = self.baseline.as_ref()?;
+        Some(SessionSnapshot {
+            baseline: owned_map(baseline),
+            lifetime: owned_map(&self.lifetime),
+            elapsed: self.elapsed(),
+            distance_meters: self.distance_meters,
+            combat_duration: self.combat_duration,
+            group_durations: self.group_durations.clone(),
+            group_attributed: self.group_attributed.iter().map(|(&group, values)| (group, owned_map(values))).collect(),
+            history: self.history.entries.iter().map(HistorySnapshot::to_owned).collect(),
+            poll_count: self.poll_count,
+        })
+    }
+
+    /// Restores a Session from a `SessionSnapshot` (see `snapshot`),
+    /// carrying its elapsed time, baseline, and history forward while
+    /// anchoring `started_at` to now - transient MumbleLink sample state
+    /// (`last_position`, `combat_sample`, `group_sample`) is left unset,
+    /// re-establishing itself from the next live sample.
+    pub fn restore(&mut self, snapshot: SessionSnapshot) {
+        self.baseline = Some(interned_map(snapshot.baseline));
+        self.lifetime = interned_map(snapshot.lifetime);
+        self.started_at = Some(Instant::now());
+        self.elapsed_before_this_run = snapshot.elapsed;
+        self.distance_meters = snapshot.distance_meters;
+        self.last_position = None;
+        self.combat_duration = snapshot.combat_duration;
+        self.combat_sample = None;
+        self.group_durations = snapshot.group_durations;
+        self.group_sample = None;
+        self.group_attributed = snapshot.group_attributed.into_iter().map(|(group, values)| (group, interned_map(values))).collect();
+        self.history = SessionHistory { entries: snapshot.history.into_iter().map(HistorySnapshotOwned::into_interned).collect() };
+        self.poll_count = snapshot.poll_count;
     }
 }
 
@@ -915,5 +1027,122 @@ mod tests {
 
         tracker.reset();
         assert_eq!(tracker.group_elapsed(MapGroup::Wvw), Duration::ZERO);
+    }
+
+    #[test]
+    fn snapshot_is_none_before_the_session_has_data() {
+        let tracker = SessionTracker::new();
+        assert!(tracker.snapshot().is_none());
+    }
+
+    #[test]
+    fn snapshot_is_some_once_the_session_has_data() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 5.0)]));
+        assert!(tracker.snapshot().is_some());
+    }
+
+    #[test]
+    fn restore_round_trips_baseline_and_lifetime() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.update(values(&[("kills", 107.0)]));
+        let snapshot = tracker.snapshot().unwrap();
+
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot);
+        assert_eq!(restored.lifetime_value("kills"), 107.0);
+        assert_eq!(restored.session_value("kills"), 7.0);
+    }
+
+    #[test]
+    fn restore_carries_elapsed_time_forward_without_double_counting_the_gap() {
+        let mut tracker = SessionTracker::new();
+        tracker.update(values(&[("kills", 1.0)]));
+        std::thread::sleep(Duration::from_millis(20));
+        let snapshot = tracker.snapshot().unwrap();
+        assert!(snapshot.elapsed >= Duration::from_millis(20));
+
+        // Simulate a gap while the addon was unloaded - restoring right
+        // away shouldn't add anything beyond the snapshot's own elapsed.
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot.clone());
+        assert!(restored.elapsed() >= snapshot.elapsed);
+        assert!(restored.elapsed() < snapshot.elapsed + Duration::from_millis(500));
+    }
+
+    #[test]
+    fn restore_round_trips_distance_combat_and_group_durations() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_map_group(Some(MapGroup::Wvw));
+        tracker.sample_position([0.0, 0.0, 0.0]);
+        tracker.sample_position([3.0, 4.0, 0.0]);
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_combat_state(true);
+        std::thread::sleep(Duration::from_millis(20));
+        tracker.sample_map_group(Some(MapGroup::Wvw));
+        tracker.update(values(&[("kills", 1.0)]));
+
+        let snapshot = tracker.snapshot().unwrap();
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot);
+
+        assert_eq!(restored.distance_traveled_meters(), 5.0);
+        assert!(restored.combat_time_elapsed() >= Duration::from_millis(20));
+        assert!(restored.group_elapsed(MapGroup::Wvw) >= Duration::from_millis(20));
+    }
+
+    #[test]
+    fn restore_round_trips_group_attributed_values() {
+        let mut tracker = SessionTracker::new();
+        tracker.sample_map_group(Some(MapGroup::Wvw));
+        tracker.update(values(&[("kills", 100.0)]));
+        tracker.update(values(&[("kills", 107.0)]));
+
+        let snapshot = tracker.snapshot().unwrap();
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot);
+
+        assert_eq!(restored.group_session_value(MapGroup::Wvw, "kills"), 7.0);
+    }
+
+    #[test]
+    fn restore_round_trips_history_log() {
+        let mut tracker = SessionTracker::new();
+        for i in 0..5 {
+            tracker.update(values(&[("kills", i as f64)]));
+        }
+        assert_eq!(tracker.history().entries().len(), 1);
+
+        let snapshot = tracker.snapshot().unwrap();
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot);
+
+        assert_eq!(restored.history().entries().len(), 1);
+        assert_eq!(restored.history().entries()[0].values["kills"], tracker.history().entries()[0].values["kills"]);
+    }
+
+    #[test]
+    fn restore_leaves_transient_mumble_sample_state_unset() {
+        // After restore, distance/combat/group tracking should resume
+        // cleanly from the next live sample rather than carrying over a
+        // stale last-known point from before the restart.
+        let mut tracker = SessionTracker::new();
+        tracker.sample_position([3.0, 4.0, 0.0]);
+        tracker.update(values(&[("kills", 1.0)]));
+        let snapshot = tracker.snapshot().unwrap();
+
+        let mut restored = SessionTracker::new();
+        restored.restore(snapshot);
+        restored.sample_position([3.0, 4.0, 0.0]);
+        assert_eq!(restored.distance_traveled_meters(), 0.0);
+    }
+
+    #[test]
+    fn snapshot_drops_a_stat_id_the_catalog_no_longer_has() {
+        let mut map = HashMap::new();
+        map.insert("no_longer_a_real_stat".to_string(), 42.0);
+        assert!(interned_map(map).is_empty());
     }
 }

@@ -1,5 +1,6 @@
-use nexus::imgui::Ui;
+use nexus::imgui::{TreeNodeFlags, Ui};
 use std::cell::Cell;
+use session_tracker_core::config::{AutomaticResetMode, Weekday};
 use session_tracker_net::state::PollStatus;
 
 use crate::app_handle::AppHandle;
@@ -94,9 +95,87 @@ fn render_general_tab(ui: &Ui, app: &AppHandle) {
     let has_data = app.lock().session.has_data();
     if has_data {
         if ui.button("Reset Session") {
-            app.lock().session.reset();
+            app.reset_session();
         }
     } else {
         ui.text("Reset Session (available after the first successful poll)");
+    }
+
+    ui.separator();
+    render_automatic_reset_section(ui, app);
+}
+
+const AUTOMATIC_RESET_MODES: [AutomaticResetMode; 5] = [
+    AutomaticResetMode::OnLoad,
+    AutomaticResetMode::Never,
+    AutomaticResetMode::MinutesAfterUnload,
+    AutomaticResetMode::Daily,
+    AutomaticResetMode::Weekly,
+];
+
+fn automatic_reset_mode_label(mode: AutomaticResetMode) -> &'static str {
+    match mode {
+        AutomaticResetMode::OnLoad => "On addon load",
+        AutomaticResetMode::Never => "Never",
+        AutomaticResetMode::MinutesAfterUnload => "N minutes after addon unload",
+        AutomaticResetMode::Daily => "Daily reset (00:00 UTC)",
+        AutomaticResetMode::Weekly => "Weekly reset",
+    }
+}
+
+/// The Automatic Reset Mode picker - a collapsible section (matches the
+/// `nexus` addon options convention of packing several concerns into one
+/// tab) rather than its own tab, since it's one dropdown plus at most a
+/// couple of conditional fields.
+fn render_automatic_reset_section(ui: &Ui, app: &AppHandle) {
+    if !ui.collapsing_header("Automatic Reset", TreeNodeFlags::empty()) {
+        return;
+    }
+
+    let current_mode = app.lock().config.automatic_reset_mode;
+    let mut mode_index = AUTOMATIC_RESET_MODES.iter().position(|&m| m == current_mode).unwrap_or(0);
+    let mode_labels: Vec<&str> = AUTOMATIC_RESET_MODES.iter().map(|&m| automatic_reset_mode_label(m)).collect();
+    if ui.combo_simple_string("Reset schedule", &mut mode_index, &mode_labels) {
+        let new_mode = AUTOMATIC_RESET_MODES[mode_index];
+        app.mutate_and_persist(|state| state.config.automatic_reset_mode = new_mode);
+    }
+
+    match current_mode {
+        AutomaticResetMode::OnLoad => {
+            let wrap_token = ui.push_text_wrap_pos();
+            ui.text_disabled(
+                "Resets every time the addon loads - including a Nexus hotload or auto-update, not just a full game restart.",
+            );
+            wrap_token.pop(ui);
+        }
+        AutomaticResetMode::MinutesAfterUnload => {
+            let mut minutes = app.lock().config.automatic_reset_minutes as i32;
+            if ui.input_int("Minutes", &mut minutes).build() {
+                let minutes = minutes.max(1) as u32;
+                app.mutate_and_persist(|state| state.config.automatic_reset_minutes = minutes);
+            }
+        }
+        AutomaticResetMode::Weekly => {
+            let current_day = app.lock().config.automatic_reset_weekly_day;
+            let mut day_index = Weekday::ALL.iter().position(|&d| d == current_day).unwrap_or(0);
+            let day_labels: Vec<&str> = Weekday::ALL.iter().map(|d| d.label()).collect();
+            if ui.combo_simple_string("Day (UTC)", &mut day_index, &day_labels) {
+                let new_day = Weekday::ALL[day_index];
+                app.mutate_and_persist(|state| state.config.automatic_reset_weekly_day = new_day);
+            }
+
+            let mut hour = app.lock().config.automatic_reset_weekly_hour as i32;
+            if ui.input_int("Hour (0-23, UTC)", &mut hour).build() {
+                let hour = hour.clamp(0, 23) as u32;
+                app.mutate_and_persist(|state| state.config.automatic_reset_weekly_hour = hour);
+            }
+
+            let mut minute = app.lock().config.automatic_reset_weekly_minute as i32;
+            if ui.input_int("Minute", &mut minute).build() {
+                let minute = minute.clamp(0, 59) as u32;
+                app.mutate_and_persist(|state| state.config.automatic_reset_weekly_minute = minute);
+            }
+        }
+        AutomaticResetMode::Never | AutomaticResetMode::Daily => {}
     }
 }

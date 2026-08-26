@@ -2,7 +2,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
 };
-use session_tracker_core::{config::save_config, stat_list, sync::lock_recover};
+use session_tracker_core::{config::save_config, session_state::save_session_state, stat_list, sync::lock_recover};
 use session_tracker_net::state::{AppState, PollStatus, StatListKind};
 
 /// Wraps the addon's shared `AppState` together with the on-disk config
@@ -49,6 +49,30 @@ impl AppHandle {
             log::warn!("failed to save session tracker config: {err}");
             state.status = PollStatus::Error(format!("failed to save config: {err}"));
         }
+    }
+
+    /// Saves the current Session's state to disk (see
+    /// `session_tracker_core::session_state`), so it can survive an addon
+    /// unload/reload per the configured Automatic Reset Mode. Called on
+    /// `unload()` and, explicitly, right after a manual reset - unlike
+    /// `persist()` (config), this isn't called on every settings change,
+    /// only those two points.
+    pub fn persist_session(&self) {
+        let mut state = self.lock();
+        let snapshot = state.session.snapshot();
+        if let Err(err) = save_session_state(&self.addon_dir, snapshot.as_ref()) {
+            log::warn!("failed to save session state: {err}");
+            state.status = PollStatus::Error(format!("failed to save session state: {err}"));
+        }
+    }
+
+    /// Resets the Session and immediately persists the (now empty) result,
+    /// rather than waiting for the next `unload()` - otherwise a crash
+    /// between this call and a clean unload would restore the stale
+    /// pre-reset session on the next load, silently undoing the reset.
+    pub fn reset_session(&self) {
+        self.lock().session.reset();
+        self.persist_session();
     }
 
     pub fn toggle_stat(&self, kind: StatListKind, id: &str) {

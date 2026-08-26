@@ -30,11 +30,15 @@ A Stat's Session Value divided by the Session's elapsed time in hours (`session_
 _Avoid_: Per-hour value, hourly rate, gph (game-specific)
 
 **Session**:
-The tracking window a Session Value is measured against. Ends and restarts on reset, triggered manually only — automatic triggers (e.g. on map change) were considered and rejected as unnecessary.
+The tracking window a Session Value is measured against. Ends and restarts on manual reset, or automatically per the configured Automatic Reset Mode. Survives addon unload/reload — elapsed time excludes any gap while the addon wasn't loaded, so Session Rate isn't diluted by time spent with the game closed.
 _Avoid_: Run, tracking period
 
+**Automatic Reset Mode**:
+The user-configured policy (Settings → General → Automatic Reset) deciding when a Session ends on its own, evaluated once at addon load: `On addon load` (default — resets every load, including a Nexus hotload/auto-update, matching the addon's pre-persistence behavior), `Never` (the Session persists indefinitely until a manual reset), `N minutes after addon unload`, `Daily reset` (fixed 00:00 UTC, matching GW2's own daily reset), or `Weekly reset` (configurable day/time, defaults to Monday 07:30 UTC, matching GW2's own weekly reset). Exactly one mode is active at a time.
+_Avoid_: Reset trigger, reset schedule (that's the UI control's label, not the concept)
+
 **History Snapshot**:
-A recorded set of a Stat's Session Value (and Session Rate where applicable) at a point in time during the Session, captured into `SessionTracker`'s history log. Session Timer, Combat Time, and stats with no Session Rate are still snapshotted for their Session Value alone.
+A recorded set of a Stat's Session Value (and Session Rate where applicable) at a point in time during the Session, captured into `SessionTracker`'s history log. Session Timer, Combat Time, and stats with no Session Rate are still snapshotted for their Session Value alone. The log persists across an addon unload/reload alongside the rest of the Session's state, continuing rather than gapping or restarting.
 _Avoid_: Entry, data point, sample — "Snapshot" alone refers to `ApiSnapshot` (the raw GW2 API poll result in `api.rs`), a different, unrelated concept.
 
 **Regression Guard**:

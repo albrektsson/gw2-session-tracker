@@ -307,6 +307,15 @@ pub fn compute_lifetime_values(snapshot: &ApiSnapshot) -> HashMap<&'static str, 
 /// Nothing else is guarded: currencies and items legitimately decrease
 /// (spending, salvaging), and computed ratios like KDR legitimately drop
 /// too (dying without a kill).
+/// Looks `id` up against `STAT_CATALOG` and returns its `&'static str`,
+/// re-interning an owned id (e.g. deserialized from a persisted Session
+/// state file) back into the same static string every in-memory stat id
+/// uses. `None` for an id that no longer exists in the catalog - a stat
+/// removed since the file was written, not an error.
+pub fn static_id(id: &str) -> Option<&'static str> {
+    STAT_CATALOG.iter().find(|s| s.id == id).map(|s| s.id)
+}
+
 pub fn is_regression_guarded(id: &str) -> bool {
     STAT_CATALOG
         .iter()

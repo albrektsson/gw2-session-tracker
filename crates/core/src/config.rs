@@ -24,6 +24,63 @@ pub enum WindowAnchor {
     BottomRight,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Weekday {
+    #[default]
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+    Sunday,
+}
+
+impl Weekday {
+    pub const ALL: [Weekday; 7] =
+        [Self::Monday, Self::Tuesday, Self::Wednesday, Self::Thursday, Self::Friday, Self::Saturday, Self::Sunday];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Monday => "Monday",
+            Self::Tuesday => "Tuesday",
+            Self::Wednesday => "Wednesday",
+            Self::Thursday => "Thursday",
+            Self::Friday => "Friday",
+            Self::Saturday => "Saturday",
+            Self::Sunday => "Sunday",
+        }
+    }
+
+    /// 0 (Monday) through 6 (Sunday) - matches the index convention
+    /// `automatic_reset`'s boundary math uses for UTC weekday arithmetic.
+    pub fn index(self) -> u32 {
+        self as u32
+    }
+}
+
+/// Automatic Reset's policy for when a Session ends on its own, evaluated
+/// once at addon load (see `automatic_reset::decide`). Exactly one variant
+/// is active at a time; `Config` keeps the `MinutesAfterUnload`/`Weekly`
+/// parameters as separate fields (below) rather than embedding them here,
+/// so switching modes in the UI doesn't lose a previously-entered value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum AutomaticResetMode {
+    /// Resets on every addon load, including a Nexus hotload/auto-update -
+    /// matches the addon's behavior before session persistence existed.
+    #[default]
+    OnLoad,
+    /// The Session persists indefinitely across restarts until a manual
+    /// reset.
+    Never,
+    MinutesAfterUnload,
+    /// Fixed 00:00 UTC, matching GW2's own daily reset - not configurable.
+    Daily,
+    /// Day/time configurable via `Config::automatic_reset_weekly_*`,
+    /// defaulting to Monday 07:30 UTC (GW2's own general weekly reset).
+    Weekly,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     pub api_key: Option<String>,
@@ -90,6 +147,16 @@ pub struct Config {
     pub show_last_updated_banner: bool,
     #[serde(default)]
     pub scope_stats_to_active_map_group: bool,
+    #[serde(default)]
+    pub automatic_reset_mode: AutomaticResetMode,
+    #[serde(default = "default_automatic_reset_minutes")]
+    pub automatic_reset_minutes: u32,
+    #[serde(default)]
+    pub automatic_reset_weekly_day: Weekday,
+    #[serde(default = "default_automatic_reset_weekly_hour")]
+    pub automatic_reset_weekly_hour: u32,
+    #[serde(default = "default_automatic_reset_weekly_minute")]
+    pub automatic_reset_weekly_minute: u32,
 }
 
 impl Config {
@@ -161,6 +228,11 @@ impl Default for Config {
             hide_zero_stats: false,
             show_last_updated_banner: default_show_last_updated_banner(),
             scope_stats_to_active_map_group: false,
+            automatic_reset_mode: AutomaticResetMode::default(),
+            automatic_reset_minutes: default_automatic_reset_minutes(),
+            automatic_reset_weekly_day: Weekday::default(),
+            automatic_reset_weekly_hour: default_automatic_reset_weekly_hour(),
+            automatic_reset_weekly_minute: default_automatic_reset_weekly_minute(),
         }
     }
 }
@@ -236,6 +308,20 @@ fn default_show_last_updated_banner() -> bool {
     true
 }
 
+fn default_automatic_reset_minutes() -> u32 {
+    30
+}
+
+/// Matches GW2's own general weekly reset (Wizard's Vault, guild missions,
+/// weekly achievements), confirmed against the wiki.
+fn default_automatic_reset_weekly_hour() -> u32 {
+    7
+}
+
+fn default_automatic_reset_weekly_minute() -> u32 {
+    30
+}
+
 const CONFIG_FILE_NAME: &str = "session_tracker_config.json";
 
 pub fn load_config(dir: &Path) -> Config {
@@ -302,6 +388,11 @@ mod tests {
             hide_zero_stats: true,
             show_last_updated_banner: false,
             scope_stats_to_active_map_group: true,
+            automatic_reset_mode: AutomaticResetMode::Weekly,
+            automatic_reset_minutes: 45,
+            automatic_reset_weekly_day: Weekday::Friday,
+            automatic_reset_weekly_hour: 18,
+            automatic_reset_weekly_minute: 0,
         };
         save_config(dir.path(), &config).unwrap();
         let loaded = load_config(dir.path());
@@ -377,6 +468,11 @@ mod tests {
         assert!(!config.hide_zero_stats);
         assert!(config.show_last_updated_banner);
         assert!(!config.scope_stats_to_active_map_group);
+        assert_eq!(config.automatic_reset_mode, AutomaticResetMode::OnLoad);
+        assert_eq!(config.automatic_reset_minutes, default_automatic_reset_minutes());
+        assert_eq!(config.automatic_reset_weekly_day, Weekday::Monday);
+        assert_eq!(config.automatic_reset_weekly_hour, default_automatic_reset_weekly_hour());
+        assert_eq!(config.automatic_reset_weekly_minute, default_automatic_reset_weekly_minute());
     }
 
     #[test]

@@ -1,10 +1,12 @@
 pub mod api;
+pub mod automatic_reset;
 pub mod category;
 pub mod config;
 pub mod format;
 pub mod map_context;
 mod material_storage;
 pub mod session;
+pub mod session_state;
 pub mod stat_list;
 pub mod stats;
 pub mod sync;

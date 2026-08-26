@@ -11,13 +11,19 @@ use nexus::{
     AddonFlags,
 };
 use std::{
+    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use app_handle::AppHandle;
 use ui::main_window::render_main_window;
 use ui::options_tabs::render_options_tabs;
-use session_tracker_core::{config::load_config, sync::lock_recover};
+use session_tracker_core::{
+    automatic_reset::{self, ResetDecision, WeeklySchedule},
+    config::load_config,
+    session_state::{load_session_state, now_unix},
+    sync::lock_recover,
+};
 use session_tracker_net::{
     gw2_client::fetch_snapshot,
     state::{AppState, Poller},
@@ -99,7 +105,9 @@ fn load() {
     );
 
     let menu_icon_enabled = config.menu_icon_enabled;
-    let shared = Arc::new(Mutex::new(AppState::new(config)));
+    let mut app_state = AppState::new(config);
+    restore_session_if_due(&mut app_state, &addon_dir);
+    let shared = Arc::new(Mutex::new(app_state));
 
     if menu_icon_enabled {
         register_quick_access();
@@ -137,6 +145,39 @@ fn load() {
     *addon = Some(Addon { app, poller });
 }
 
+/// Restores a persisted Session (see `session_tracker_core::session_state`)
+/// into `state.session` if the configured Automatic Reset Mode says it
+/// should carry forward, or logs that it fired and leaves `state.session`
+/// as the fresh one `AppState::new` already built. A no-op (fresh session,
+/// no log) if there's no persisted state at all - the addon's first-ever
+/// run, or one where the last run never got any Session data to save.
+fn restore_session_if_due(state: &mut AppState, addon_dir: &Path) {
+    let Some(persisted) = load_session_state(addon_dir) else {
+        return;
+    };
+    let weekly = WeeklySchedule {
+        day: state.config.automatic_reset_weekly_day,
+        hour: state.config.automatic_reset_weekly_hour,
+        minute: state.config.automatic_reset_weekly_minute,
+    };
+    let decision = automatic_reset::decide(
+        state.config.automatic_reset_mode,
+        state.config.automatic_reset_minutes,
+        weekly,
+        persisted.saved_at_unix,
+        now_unix(),
+    );
+    match decision {
+        ResetDecision::Restore => {
+            log::info!("restoring session from a previous run (Automatic Reset Mode: {:?})", state.config.automatic_reset_mode);
+            state.session.restore(persisted.snapshot);
+        }
+        ResetDecision::Discard => {
+            log::info!("Automatic Reset fired ({:?}): previous session discarded", state.config.automatic_reset_mode);
+        }
+    }
+}
+
 fn toggle_show_main() {
     let guard = lock_recover(&ADDON);
     if let Some(addon) = guard.as_ref() {
@@ -149,6 +190,9 @@ fn unload() {
     // Idempotent by identifier - a no-op if quick access was never
     // registered (menu_icon_enabled was false at load time).
     remove_quick_access(QUICK_ACCESS_IDENTIFIER);
+    if let Some(addon) = lock_recover(&ADDON).as_ref() {
+        addon.app.persist_session();
+    }
     // Dropping the `Addon` stops the poller (`Poller::drop`).
     lock_recover(&ADDON).take();
 }
