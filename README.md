@@ -48,13 +48,21 @@ and reset your session whenever you want a fresh baseline.
 
 ## Screenshots
 
-| Main window | Select Stats |
+| Main window | General settings |
 |---|---|
-| ![Main window](./images/session_tracker.png) | ![Select Stats tab](./images/stat_selector.png) |
+| ![Main window](./images/session_tracker.png) | ![General settings tab](./images/01-settings-general.png) |
 
-| Arrange Stats | General settings |
+| Select Stats | Arrange Stats |
 |---|---|
-| ![Arrange Stats tab](./images/stat_sorter.png) | ![General settings tab](./images/settings.png) |
+| ![Select Stats tab](./images/02-settings-select.png) | ![Arrange Stats tab](./images/03-settings-arrange.png) |
+
+| Appearance | Window Behavior |
+|---|---|
+| ![Appearance tab](./images/04-settings-appearance.png) | ![Window Behavior tab](./images/05-settings-behavior.png) |
+
+| Formatting |
+|---|
+| ![Formatting tab](./images/06-settings-formatting.png) |
 
 ## Structure
 
