@@ -24,7 +24,7 @@ jobs:
       GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -51,7 +51,7 @@ jobs:
         run: cargo test --locked -p session_tracker_net --test live_api -- --ignored
       - name: cargo clippy
         run: cargo clippy --locked -p session_tracker_core -p session_tracker_net --all-targets -- -D warnings
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # ratchet:taiki-e/install-action@v2
+      - uses: taiki-e/install-action@5bf6ce016fd2e72eefc647cbca1e4213f65955b8 # ratchet:taiki-e/install-action@v2
         with:
           tool: cargo-deny,cargo-machete
       - name: cargo deny check
@@ -63,7 +63,7 @@ jobs:
     name: Build addon (x86_64-pc-windows-msvc)
     runs-on: windows-latest
     steps:
-      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7

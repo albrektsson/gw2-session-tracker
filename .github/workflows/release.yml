@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
@@ -31,7 +31,7 @@ jobs:
       - uses: step-security/rust-cache@851174d9a2fdc03e0896e02844dcc61d81dd7851 # ratchet:step-security/rust-cache@v2
       - name: cargo build (release)
         run: cargo build --locked --target x86_64-pc-windows-msvc --release -p session_tracker
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # ratchet:taiki-e/install-action@v2
+      - uses: taiki-e/install-action@5bf6ce016fd2e72eefc647cbca1e4213f65955b8 # ratchet:taiki-e/install-action@v2
         with:
           tool: git-cliff
       - name: Generate release notes
