@@ -31,7 +31,7 @@ jobs:
       - uses: step-security/rust-cache@8871c8ba063416da7c32246932ea6ae08700453e # ratchet:step-security/rust-cache@v2
       - name: cargo build (release)
         run: cargo build --locked --target x86_64-pc-windows-msvc --release -p session_tracker
-      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # ratchet:taiki-e/install-action@v2
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # ratchet:taiki-e/install-action@v2
         with:
           tool: git-cliff
       - name: Generate release notes
