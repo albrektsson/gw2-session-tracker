@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      cargo:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     cooldown:
       default-days: 7
   - package-ecosystem: github-actions
